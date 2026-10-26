@@ -1,0 +1,18 @@
+# BSRNN-104M 5/6 (all pairs): + transcript NLL
+model: "bsrnn_xl"
+init: "runs/bsrnnxl_SE_full/ema_030000.pt"
+full: true
+bs: 4
+accum: 2
+lr: 5e-05
+lr_min: 1e-06
+warmup: 200
+steps: 6000
+eval_every: 2000
+ema: 0.9995
+seg: 64000
+p_real: 0.5
+enc_loss: 30.0
+nll_loss: 2.5
+seed: 0
+out: "runs/bsrnnxl_SEN30_full"

@@ -1,0 +1,17 @@
+# MossFormerGAN 4/9 (held-out twin): + transcript NLL
+model: "mossgan"
+init: "runs/mg_SE/ema_004000.pt"
+bs: 4
+accum: 1
+lr: 5e-05
+lr_min: 1e-06
+warmup: 100
+steps: 4000
+eval_every: 1000
+ema: 0.999
+seg: 32000
+p_real: 0.5
+enc_loss: 30.0
+nll_loss: 2.5
+seed: 7
+out: "runs/mg_SEN"

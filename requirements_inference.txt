@@ -1,0 +1,16 @@
+# Inference environment (Python 3.12). Install with scripts/setup_env.sh, which installs PyTorch 2.9.0 (CUDA 12.8 wheels),
+# these packages, and then espnet==202610.post2 with --no-deps: its metadata asks for numpy>=2 and torch>=2.11, but the
+# enhancement modules used here run on this stack, and clearvoice needs numpy<2.
+torch==2.9.0
+torchaudio==2.9.0
+clearvoice==0.1.2
+rotary-embedding-torch==0.8.3
+torch-complex==0.4.4
+typeguard==4.6.0
+numpy==1.26.4
+scipy==1.16.1
+soundfile==0.12.1
+PyYAML==6.0.2
+huggingface_hub==1.30.0
+transformers==5.16.1
+sentencepiece==0.2.1

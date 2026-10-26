@@ -1,0 +1,12 @@
+# MossFormerGAN 1/9 (held-out protocol): from ClearVoice's pretrained MossFormerGAN_SE_16K, SI-SDR + spectral L1 only
+model: "mossgan"
+bs: 4
+lr: 0.0001
+lr_min: 1e-06
+warmup: 500
+steps: 40000
+eval_every: 2000
+ema: 0.999
+seg: 32000
+seed: 0
+out: "runs/mg_sn_a1"

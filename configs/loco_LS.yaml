@@ -1,0 +1,20 @@
+# TF-Locoformer 1/4 (held-out protocol): from MERL's DNS-2020 checkpoint, ASR losses with the long stream from step 0
+model: "loco"
+bs: 4
+accum: 1
+lr: 0.0001
+lr_min: 1e-06
+warmup: 300
+steps: 20000
+eval_every: 2500
+ema: 0.9995
+seg: 64000
+p_real: 0.5
+enc_loss: 30.0
+nll_loss: 2.5
+long_beds: "data/beds_long/manifest.jsonl"
+long_s: "12,18"
+long_bs: 2
+seed: 11
+pretrained: "track2/third_party/tflocoformer/model.pth"
+out: "runs/loco_LS"

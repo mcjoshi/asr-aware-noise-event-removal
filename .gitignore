@@ -1,0 +1,11 @@
+checkpoints/*.pt
+track2/third_party/tflocoformer/model.pth
+data/
+runs/
+.venv/
+__pycache__/
+*.pyc
+docs/report/*.aux
+docs/report/*.log
+docs/report/*.out
+docs/report/technical_report.pdf

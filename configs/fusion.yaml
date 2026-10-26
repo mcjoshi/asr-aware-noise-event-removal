@@ -1,0 +1,36 @@
+# Final fusion (SHIPPED as checkpoints/fusion.pt). Every member output here comes from held-out-protocol members
+# (mg_LB, bsrnnxl_LB, TF-Locoformer soup), so the fusion learns on clips its members never trained on.
+# Roots are resolved against the working directory; teacher labels are keyed by absolute clean paths.
+sets:
+  - name: fresh2                      # 2,500 test-shaped mixtures (make_fusion_mixtures.py), teacher labels for the NLL/MWER
+    root: data/fresh2
+    fresh: true
+    limit: 2500
+    members: [members/mg_LB, members/bsrnnxl_LB_tta, members/loco_soup]
+  - name: heldout                     # the 209 held-out organiser pairs (make_heldout.py)
+    root: data/heldout
+    members: [members/mg_LB_tta, members/bsrnnxl_LB_tta, members/loco_soup]
+  - name: valset_p2f                  # 1,200 simulated Phase-2-shaped clips on held-out speakers (make_valset.py)
+    root: data/valset_p2f
+    members: [members/mg_LB, members/bsrnnxl_LB_tta, members/loco_soup]
+teacher: data/tdt_teacher/fresh2.pt   # make_teacher.py --set data/fresh2/clean_manifest.jsonl --name fresh2
+w0: [0.20, 0.35, 0.45]                # starting mix: MossFormerGAN, BSRNN, TF-Locoformer
+ch: 64
+gmax: 0.0
+rmax: 0.2
+anchor: true
+steps: 3000
+bs: 4
+seg: 8.0
+lr: 0.0005
+wd: 0.0001
+warmup: 200
+p_in: 0.4
+dev_frac: 0.06
+dev_n: 200
+min_s: 2.0
+eval_every: 500
+enc_loss: 30.0
+nll_loss: 2.5
+mwer: 3.0
+seed: 0

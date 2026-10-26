@@ -1,0 +1,23 @@
+# TF-Locoformer 2/4: loco_LS continued with the deletion-weighted MWER loss
+model: "loco"
+init: "runs/loco_LS/ema_020000.pt"
+bs: 4
+accum: 1
+lr: 5e-05
+lr_min: 1e-06
+warmup: 200
+steps: 4000
+eval_every: 2000
+ema: 0.999
+seg: 64000
+p_real: 0.5
+enc_loss: 30.0
+nll_loss: 2.5
+mwer: 3.0
+mwer_n: 4
+mwer_del: 2.0
+long_beds: "data/beds_long/manifest.jsonl"
+long_s: "12,18"
+long_bs: 2
+seed: 21
+out: "runs/loco_MWm"

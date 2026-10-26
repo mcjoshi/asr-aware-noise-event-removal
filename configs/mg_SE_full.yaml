@@ -1,0 +1,17 @@
+# MossFormerGAN 6/9 (all 695 pairs): encoder loss from mg_S
+model: "mossgan"
+init: "runs/mg_S/ema_034000.pt"
+full: true
+bs: 4
+accum: 1
+lr: 5e-05
+lr_min: 1e-06
+warmup: 100
+steps: 4000
+eval_every: 1000
+ema: 0.999
+seg: 32000
+p_real: 0.5
+enc_loss: 30.0
+seed: 7
+out: "runs/mg_SE_full"

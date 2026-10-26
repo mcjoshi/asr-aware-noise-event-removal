@@ -1,0 +1,6 @@
+# Training environment: the inference environment (requirements_inference.txt, espnet installed by scripts/setup_env.sh)
+# plus the data-preparation dependencies.
+-r requirements_inference.txt
+librosa==0.10.2.post1
+pyarrow
+silero-vad

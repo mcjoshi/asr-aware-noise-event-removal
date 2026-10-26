@@ -1,0 +1,14 @@
+# MossFormerGAN 2/9: continued from step 6000 of mg_sn_a1, small batch, long schedule
+model: "mossgan"
+init: "runs/mg_sn_a1/ema_006000.pt"
+bs: 4
+accum: 1
+lr: 0.0001
+lr_min: 1e-06
+warmup: 200
+steps: 34000
+eval_every: 2000
+ema: 0.999
+seg: 32000
+seed: 7
+out: "runs/mg_S"
