@@ -54,7 +54,29 @@ was excluded, beds were screened for quiet pauses, benign transcript tags and no
 organiser references. SraVaani greedy tokens of each clean bed, decoded once at full context, serve as transcript
 teachers. No test audio is used for training.
 
-\textbf{Simulated sets for the fusion.} \emph{fresh2}: 5,000 test-shaped single-speaker mixtures (8--18\,s, 0.65
+\begin{table}[t]
+\caption{Data used. Only the first two rows are organiser data; nothing from the test set is used for training.}
+\label{tab:data}
+\centering\scriptsize
+\setlength{\tabcolsep}{2.5pt}
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{@{}llrrl@{}}
+\toprule
+Set & Source & Clips & Hours & Use \\
+\midrule
+Synthetic pairs & Vaani validation & 695 & 1.0 & members (486), held-out (209) \\
+Natural clips & Vaani validation & 1,806 & 2.5 & natural $\Delta$WER (555) \\
+Noise events & noisy $-$ clean of the pairs & 2,213 & 0.4 & augmentation only \\
+Long beds & Vaani transcription release & 1,450 & 5.7 & long ASR stream \\
+fresh2 & IndicVoices-R, Vaani beds + events & 5,000 & 19.8 & fusion training (2,500) \\
+valset & held-out beds + events & 1,200 & 4.2 & fusion training, evaluation \\
+valset\_long & unseen Vaani speakers + events & 360 & 1.3 & evaluation (test length) \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+\textbf{Simulated sets for the fusion.} Table~\ref{tab:data} summarises all data (long beds: 1,291 speakers, 29
+languages; noise events: 23\,min in 7 categories). \emph{fresh2}: 5,000 test-shaped single-speaker mixtures (8--18\,s, 0.65
 events/s) on beds unseen by every held-out-protocol member (2,500 used); \emph{valset}: 1,200 Phase-2-shaped clips on
 held-out speakers; \emph{valset\_long}: 360 test-length clips from unseen speakers for evaluation.
 
@@ -146,7 +168,7 @@ type, no pass-through of whole clips and no template, dictionary or correlation 
 
 \section{Results and Conclusion}
 The metric is Combined $=$ SI-SDR~\cite{sisdr} (synthetic clips) $+\,100\cdot\Delta$WER (all 3,178 clips, pooled). Table~\ref{tab:ladder}
-shows how the system was built on the Phase 2 board; each row adds one change.
+and Fig.~\ref{fig:ladder} show how the system was built on the Phase 2 board; each row adds one change.
 
 \begin{table}[t]
 \caption{Phase 2 board, one change per row ($\Delta$WER in pp). Rows above the rule predate the organisers'
@@ -177,9 +199,12 @@ All three with the long stream & 19.81 & 15.77 & 11.49 & 0.52 \\
 \end{tabular}
 \end{table}
 
-\textbf{Local evaluation.} Changes were screened on three local sets before any upload: the 209 held-out pairs
-(SI-SDR, short clips), the 360-clip test-length set (SI-SDR and words) and the 555 natural clips (words), with paired
-clip-bootstrap confidence intervals; one upload resolves synthetic words only to about $\pm0.25$\,pp.
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{../figures/ladder.pdf}
+\caption{Phase 2 board score per upload (Table~\ref{tab:ladder}); the largest step is the new TF-Locoformer family.}
+\label{fig:ladder}
+\end{figure}
 
 \begin{table}[t]
 \caption{Each component measured locally against the same system without it (paired clip bootstrap, 95\% CI;
@@ -228,7 +253,11 @@ Ours & 12,730 & \multicolumn{2}{r}{$+4.1$} \\
 \end{tabular}
 \end{table}
 
-\textbf{Validity.} Table~\ref{tab:abl} isolates each component against the same system without it; every component kept in the final system improved words or SI-SDR locally with a confidence interval excluding zero, and each one uploaded alone also improved the board. Local SI-SDR gains transferred to the board at roughly 25--100\%, local word gains less reliably, so every board upload changed one thing at a time and the final file was chosen on the board.
+\textbf{Validity.} Changes were screened on the 209 held-out pairs, the 360 test-length clips and the 555 natural
+clips with paired clip-bootstrap intervals before any upload. Table~\ref{tab:abl} isolates each component: every one kept
+improved words or SI-SDR locally with an interval excluding zero, and each one uploaded alone also improved the board.
+Local SI-SDR gains transferred at roughly 25--100\%, word gains less reliably (one upload resolves synthetic words to
+about $\pm0.25$\,pp), so each upload changed one thing and the final file was chosen on the board.
 
 \textbf{Key findings.} (i) Training through the scoring ASR helped every family: on 33.8k simulated words the encoder
 and transcript losses gave $+0.3$ to $+0.6$\,pp at no SI-SDR cost, and long single-recording windows a further
@@ -265,9 +294,8 @@ TF-Locoformer soup retrained on all pairs & board 19.87 vs 19.90 \\
 \end{tabular}
 \end{table}
 
-\textbf{What did not help} (Table~\ref{tab:neg}). Generative restorers (they rewrote Indic words or lost 8.6\,dB), more clean training speech
-(198\,h, all four families), a trained two-stage TF-Locoformer, a speech-intact training target, ASR features as fusion
-inputs, heavier ASR-loss weighting and per-clip-type processing all failed to beat the system above.
+\textbf{What did not help.} Table~\ref{tab:neg} lists the ideas that did not beat the system, including generative
+restorers and more clean speech.
 
 \textbf{Reproducibility and code.} Code, training configurations for all 19 member stages and the fusion, data
 preparation scripts and the inference script are at \url{https://github.com/XXXX/indoml2026-track2-hydra} % TODO: replace with the final repository URL
@@ -279,10 +307,8 @@ Training ran on NVIDIA A100 80\,GB GPUs (one per run, 20--40\,GB each); inferenc
 gains under 0.3\,pp could not be confirmed on the board, whose single-upload noise is about $\pm0.25$\,pp; and the
 system leaves about 45\% of the test-length clean-speech word gain unrecovered, mostly deletions under loud, long events.
 
-\textbf{Conclusion.} A single pipeline of three fine-tuned public enhancers, trained against the scoring ASR's own
-objectives and fused per cell, reaches Combined 19.90 (fourth on the Phase 2 board) with every clip processed identically. Closing the
-remaining synthetic-word gap needs better per-cell decisions under loud events. Code, configurations and checkpoints
-are released with this report.
+\textbf{Conclusion.} Three fine-tuned public enhancers, trained against the scoring ASR's own objectives and fused
+per cell, reach Combined 19.90 (fourth on the Phase 2 board) with every clip processed identically.
 
 \begin{thebibliography}{9}
 \footnotesize
