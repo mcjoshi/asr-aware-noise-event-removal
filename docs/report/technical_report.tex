@@ -181,6 +181,55 @@ All three with the long stream & 19.81 & 15.77 & 11.49 & 0.52 \\
 (SI-SDR, short clips), the 360-clip test-length set (SI-SDR and words) and the 555 natural clips (words), with paired
 clip-bootstrap confidence intervals; one upload resolves synthetic words only to about $\pm0.25$\,pp.
 
+\begin{table}[t]
+\caption{Each component measured locally against the same system without it (paired clip bootstrap, 95\% CI;
+sim.\ = 1,200 simulated clips, 33.8k words; long = 360 test-length clips; h/o = 209 held-out pairs), and its
+board effect where it was uploaded alone. $^\dagger$Local on MossFormerGAN, board on an MP-SENet member.}
+\label{tab:abl}
+\centering\scriptsize
+\setlength{\tabcolsep}{2.2pt}
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{@{}lll@{}}
+\toprule
+Component & Local effect & Board \\
+\midrule
+Encoder loss$^\dagger$ & $+0.30$\,pp [$+0.06$, $+0.53$] sim. & $+0.17$ \\
+Enc.\ + transcript loss (BSRNN) & $+0.61$\,pp [$+0.36$, $+0.85$] sim., $+0.05$\,dB & -- \\
+Long single-recording stream & $+1.47$\,pp [$+1.18$, $+1.78$] sim., $+0.30$\,dB & -- \\
+TF-Locoformer in the mix & $+0.79$\,dB long (351 of 360 clips better) & $+1.37$ \\
+Learned fusion vs fixed mix & $+0.40$\,pp [$+0.21$, $+0.59$] sim., $+0.06$\,dB h/o & $+0.13$ to $+0.24$ \\
+Long stream on all 3 members & $+0.33$\,pp [$+0.07$, $+0.60$], $+0.23$\,dB long & $+0.11$ \\
+TF-Locoformer weight soup & $+0.085$\,dB [$+0.056$, $+0.118$] h/o & $+0.03$ \\
+MWER in the fusion & $+0.26$\,pp [$+0.10$, $+0.43$] long & $+0.04$ \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+\begin{table}[t]
+\caption{Where words are lost: word error (\%) by region on the 555 natural clips (words timed by ASR timestamps,
+labelled by the organisers' event timestamps) and $\Delta$WER (pp) bounds on the 360 test-length clips.}
+\label{tab:diag}
+\centering\scriptsize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+Natural clips & Words & Noisy & Fusion \\
+\midrule
+Clear speech (no event) & 5,052 & 25.4 & 25.6 \\
+Under a short event & 2,033 & 26.8 & 27.0 \\
+Under clip-long ambient noise only & 749 & 32.7 & 32.3 \\
+\midrule
+Test-length clips & & \multicolumn{2}{r}{$\Delta$WER} \\
+\midrule
+Clean speech (ceiling) & 12,730 & \multicolumn{2}{r}{$+7.59$} \\
+Speech intact, events at $-20$\,dB (oracle) & 12,730 & \multicolumn{2}{r}{$+6.54$} \\
+Ours & 12,730 & \multicolumn{2}{r}{$+4.1$} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Validity.} Table~\ref{tab:abl} isolates each component against the same system without it; every component kept in the final system improved words or SI-SDR locally with a confidence interval excluding zero, and each one uploaded alone also improved the board. Local SI-SDR gains transferred to the board at roughly 25--100\%, local word gains less reliably, so every board upload changed one thing at a time and the final file was chosen on the board.
+
 \textbf{Key findings.} (i) Training through the scoring ASR helped every family: on 33.8k simulated words the encoder
 and transcript losses gave $+0.3$ to $+0.6$\,pp at no SI-SDR cost, and long single-recording windows a further
 $+1.5$\,pp. (ii) Decorrelated families matter more than size: each member alone scores 0.6--1.0 below the blend, and
@@ -189,8 +238,10 @@ Two members lose 0.08 against three, while eight members gained nothing over thr
 cell beats fixed weights ($+0.1$ to $+0.4$). (iv) Where words are lost: on simulated clips 71\% of lost words are
 deletions and 79\% lie under event spans, worst for events louder than $-10$\,dB and longer than 1.2\,s; an oracle mask
 on the mixture recovers 95--97\% of the clean-speech word ceiling, so the limit is per-cell gain accuracy under loud
-events. On natural clips, clear speech already has 25.4\% word error, words under events only 1.4--7\,pp more, and
-10.5\% of reference words are English glosses that no output can match, which caps the natural gain near 1\,pp.
+events. On natural clips (Table~\ref{tab:diag}), clear speech already has 25.4\% word error, words under events only 1.4--7\,pp more, and
+10.5\% of reference words are English glosses that no output can match, which caps the natural gain near 1\,pp. On
+test-length synthetic clips, keeping the speech intact matters more than removing every trace of an event: speech
+intact with events at $-20$\,dB keeps 86\% of the clean-speech word gain.
 
 \begin{table}[t]
 \caption{Ideas that did not beat the system, measured paired against it (local sets: test-length long set, 209
@@ -217,6 +268,16 @@ TF-Locoformer soup retrained on all pairs & board 19.87 vs 19.90 \\
 \textbf{What did not help} (Table~\ref{tab:neg}). Generative restorers (they rewrote Indic words or lost 8.6\,dB), more clean training speech
 (198\,h, all four families), a trained two-stage TF-Locoformer, a speech-intact training target, ASR features as fusion
 inputs, heavier ASR-loss weighting and per-clip-type processing all failed to beat the system above.
+
+\textbf{Reproducibility and code.} Code, training configurations for all 19 member stages and the fusion, data
+preparation scripts and the inference script are at \url{https://github.com/XXXX/indoml2026-track2-hydra} % TODO: replace with the final repository URL
+and the final checkpoints at \url{https://huggingface.co/manishjoshiai/indoml2026-track2-noise-removal}. In a freshly
+built environment the inference script reproduced the submitted audio to within one 16-bit step on every sample.
+Training ran on NVIDIA A100 80\,GB GPUs (one per run, 20--40\,GB each); inference needs one GPU.
+
+\textbf{Limitations.} Four-shift averaging in two members makes inference several times slower than a single pass; local word
+gains under 0.3\,pp could not be confirmed on the board, whose single-upload noise is about $\pm0.25$\,pp; and the
+system leaves about 45\% of the test-length clean-speech word gain unrecovered, mostly deletions under loud, long events.
 
 \textbf{Conclusion.} A single pipeline of three fine-tuned public enhancers, trained against the scoring ASR's own
 objectives and fused per cell, reaches Combined 19.90 (fourth on the Phase 2 board) with every clip processed identically. Closing the
