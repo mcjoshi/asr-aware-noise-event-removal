@@ -99,7 +99,9 @@ We re-ran the released scripts in a fresh folder and compared them with the runs
 | | held-out `ema_raw` (dB) | 22.27917 | 22.27926 | |
 | | long-window ASR loss | 0.975 | 0.884 | 0.991 |
 | fusion (`fusion.yaml`) | training loss | −15.696 | −15.706 | −15.614 |
-| `mg_LB_full` | held-out `raw` at step 0 | 19.369 | 19.369 | |
+| `mg_LB_full` | training loss | −11.1875 | −11.1905 | |
+| | held-out `ema_raw` (dB) | 19.37013 | 19.37024 | |
+| | long-window ASR loss | 2.620 | 2.621 | |
 
 The two trainers agree to the precision that GPU nondeterminism allows: their gap is no larger than the gap between two runs of the same trainer.
 The MWER loss samples hypotheses, so it varies most between runs.
