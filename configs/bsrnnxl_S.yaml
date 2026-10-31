@@ -3,7 +3,7 @@ model: "bsrnn_xl"
 bs: 8
 accum: 1
 lr: 0.0001
-lr_min: 1e-06
+lr_min: 1.0e-06
 warmup: 1000
 steps: 30000
 eval_every: 2000

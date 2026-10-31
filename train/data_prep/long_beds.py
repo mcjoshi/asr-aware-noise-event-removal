@@ -51,8 +51,8 @@ def used_speakers():
     out = {speaker(r["clip_id"]) for r in load_meta()}
     out |= {r["speaker_id"] for r in map(json.loads, open(os.path.join(T2, "beds_large", "manifest.jsonl")))
             if r["source"] != "indicvoices_r"}
-    gold = os.path.join(T2, "beds_gold")   # earlier gold beds, if any
-    out |= {speaker(f) for f in os.listdir(gold) if f.endswith(".wav")} if os.path.isdir(gold) else set()
+    # speakers of an earlier gold-bed set that existed when our valset_long was built (shipped list, same exclusions)
+    out |= set(json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "gold_speakers.json")))["speakers"])
     return out
 
 

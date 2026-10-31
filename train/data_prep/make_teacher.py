@@ -4,7 +4,8 @@ clean bed the trainer can sample, decoded once at full context exactly as the sc
 against the model's own one-clip decoder.
 
   python train/data_prep/make_teacher.py --set val
-  python train/data_prep/make_teacher.py --set data/beds_large/manifest.jsonl --drop-source vaani_tp_tagless [--shard 0/4]
+  python train/data_prep/make_teacher.py --set data/beds_long/manifest.jsonl
+  python train/data_prep/make_teacher.py --set data/fresh2/clean_manifest.jsonl --name fresh2
 
 Output: data/tdt_teacher/<name>.pt, {key: (tokens int16, frames int32)} as tensors; keys are "val/<clip_id>" for the
 validation clean references (truncated to the noisy length, as the trainer holds them) and absolute wav paths

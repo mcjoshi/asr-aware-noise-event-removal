@@ -13,7 +13,7 @@ noisy clip -> MossFormerGAN (4-shift TTA) -+
 ```
 
 - **Members:** all three are fine-tuned through the frozen scoring ASR (SraVaani-1.0).
-  - Losses: SI-SDR, ASR encoder distance, TDT transcript NLL, and a deletion-weighted MWER term for TF-Locoformer.
+  - Losses: SI-SDR, ASR encoder distance and TDT transcript NLL; one of the three averaged TF-Locoformer fine-tunes also uses a deletion-weighted MWER term.
   - Training data: the organisers' validation pairs, plus a long single-recording (12-18 s) ASR stream.
 - **Fusion:** predicts per time-frequency cell softmax weights over the members, plus a bounded readmission of the input.
   - Trained on out-of-sample member outputs, through the shipped post-processing.
@@ -68,10 +68,11 @@ docs/                          technical report, REPRODUCE.md (reproduction guid
 | GPU memory | member training 20-40 GB per run (activation checkpointing, bf16 attention); fusion training about 10 GB; inference fits on one GPU |
 | CPU / RAM | 96 cores, 866 GB RAM; training streams hold the organiser pairs and long beds in RAM (about 20 GB); data preparation uses 24-48 worker processes |
 
-**System dependencies:** an NVIDIA GPU with a CUDA 12 driver (inference and training both run on CUDA), Python 3.12 with `venv` (`apt install python3.12 python3.12-venv`), `curl` and `git`.
+**System dependencies:** an NVIDIA GPU with a CUDA 12 driver (inference and training both run on CUDA), Python 3.12 with `venv` (we used Miniconda's Python 3.12.4; Ubuntu 22.04 ships Python 3.10, so use conda, pyenv or the deadsnakes PPA: `add-apt-repository ppa:deadsnakes/ppa && apt install python3.12 python3.12-venv`), `curl` and `git`.
+Internet access to huggingface.co is needed on first use (ClearVoice and ESPnet download their base networks before our weights are loaded).
 `soundfile` ships its own libsndfile, so no audio system library is needed.
 
-**Disk:** inference needs about 1.5 GB (final checkpoints 0.5 GB, SraVaani-1.0 0.9 GB, ClearVoice's MossFormerGAN 0.14 GB).
+**Disk:** inference needs about 2 GB (final checkpoints 0.5 GB, SraVaani-1.0 0.9 GB, the ESPnet BSRNN base network 0.42 GB, ClearVoice's MossFormerGAN 0.14 GB).
 Rebuilding the training data needs several hundred GB at peak: the Vaani ingest streams the whole release (its kept wavs are about 60 GB), the raw bed shards take about 300 GB (`build_beds_large.py process --delete-raw` frees each shard once scored), the final beds 23 GB, and `fresh2` with its member outputs about 64 GB.
 
 ```bash
@@ -81,6 +82,7 @@ bash scripts/setup_env.sh inference      # or: train   (creates .venv; see requi
 
 Both environments were built from scratch with `scripts/setup_env.sh`.
 The inference environment reproduced the shipped audio (see "Reproduction check"); in the training environment every training and data-preparation entry point starts.
+The rendered figures need `matplotlib` only to be redrawn (`docs/figures/src/system.py`).
 
 ### Access (gated Hugging Face repositories)
 
@@ -93,7 +95,7 @@ Three resources are gated: request access on each page, then log in (`huggingfac
 | [ai4bharat/indicvoices_r](https://huggingface.co/datasets/ai4bharat/indicvoices_r) | training data (fusion beds) |
 
 `SRAVAANI=/path/to/snapshot` points inference and training at a local SraVaani-1.0 copy instead of downloading it.
-Enhanced wavs alone (`infer.py` without `--zip`) need no gated access.
+Enhanced wavs alone (`infer.py` without `--zip`, or `run_inference.sh <in> <out> none`) need no gated access.
 
 ### Pretrained models
 
@@ -113,7 +115,7 @@ TF-Locoformer is needed only for training (`scripts/download_pretrained.sh`), be
 
 ```bash
 bash scripts/download_checkpoints.sh             # 4 files, about 490 MB
-bash scripts/run_inference.sh /path/to/input_data/audio out/ out/submission.zip
+bash scripts/run_inference.sh /path/to/input_data/audio out/ out/submission.zip    # "none" instead of the zip: wavs only
 # or
 python inference/infer.py --input-dir /path/to/input_data/audio --output-dir out --checkpoints checkpoints --zip out/submission.zip
 ```
@@ -122,9 +124,9 @@ python inference/infer.py --input-dir /path/to/input_data/audio --output-dir out
 - **Output:**
   - `out/<clip_id>.wav`: enhanced audio, 16 kHz mono PCM16, same length as the input.
   - `--zip`: the Phase 2 submission zip. The wavs and `transcripts.jsonl` (`{"clip_id", "text"}`) sit at the zip root. The transcripts are SraVaani-1.0 run on exactly the zipped audio.
-- **Time:** a few seconds per clip on one A100, dominated by the two 4-shift TTA members (7 clips totalling 2.4 minutes of audio took 79 s).
+- **Time and memory:** about 10 s per clip on one A100 including model loading, dominated by the two 4-shift TTA members (20 test clips, 5.9 minutes of audio, took 194 s); peak GPU memory 16.8 GB.
 
-**Reproduction check:** in a fresh environment built by `scripts/setup_env.sh`, the script reproduced the shipped `p2_44_soupmwer` audio on 7 Phase 2 clips (4 s to 39 s) to within 1 LSB of 16-bit PCM on every sample. 6 of the 7 transcripts were identical. In the seventh, a 1-LSB difference changed the ASR's greedy decode.
+**Reproduction check:** from a fresh clone of this repository, with the environment built by `scripts/setup_env.sh` and the checkpoints downloaded from Hugging Face, `run_inference.sh` reproduced the shipped `p2_44_soupmwer` audio on 20 Phase 2 clips (4 s to 39 s) to within 1 LSB of 16-bit PCM on every sample, and all 20 transcripts were identical. (In an earlier 7-clip check, 6 transcripts were identical; in the seventh a 1-LSB difference changed the ASR's greedy decode, which can happen.)
 
 Checkpoints are on Hugging Face, [manishjoshiai/asr-aware-noise-event-removal](https://huggingface.co/manishjoshiai/asr-aware-noise-event-removal):
 - `mossformergan.pt`
@@ -137,7 +139,7 @@ Checkpoints are on Hugging Face, [manishjoshiai/asr-aware-noise-event-removal](h
 `scripts/train_all.sh` lists every stage in order. Each member stage is `python train/train_member.py --config configs/<stage>.yaml`.
 See [`docs/REPRODUCE.md`](docs/REPRODUCE.md) for the stage table, expected results and how to check a stage against our intermediate checkpoints.
 
-**Data layout (`./data`; symlink it if the data must live elsewhere, since configs and teacher files refer to `data/...`):**
+**Data layout (`./data`; symlink it if the data must live elsewhere, since configs refer to `data/...`; teacher files are keyed by absolute paths, so build them where the data will stay):**
 
 | path | content | made by |
 |---|---|---|
@@ -149,7 +151,7 @@ See [`docs/REPRODUCE.md`](docs/REPRODUCE.md) for the stage table, expected resul
 | `beds_large/` | clean Vaani tagless and IndicVoices-R beds, from the exact shards and dataset revisions in `train/data_prep/bed_shards.json` | `train/data_prep/build_beds_large.py` |
 | `valset_p2f/` | 1,200 simulated Phase-2-shaped clips on held-out speakers | `train/data_prep/make_valset.py` |
 | `valset_long/` | 360 test-length clips, one per unseen speaker (evaluation only) | `train/data_prep/long_beds.py valset` |
-| `fresh2/` | 5,000 single-recording fusion mixtures, 8-18 s (first 2,500 used) | `train/data_prep/make_fusion_mixtures.py` |
+| `fresh2/` | 5,000 fusion mixtures, 8-18 s, each 1-4 beds of one speaker joined with 50 ms gaps (first 2,500 used) | `train/data_prep/make_fusion_mixtures.py` |
 | `tdt_teacher/` | SraVaani greedy tokens of every clean bed | `train/data_prep/make_teacher.py` |
 
 **Training data and augmentation:**
@@ -166,11 +168,11 @@ See [`docs/REPRODUCE.md`](docs/REPRODUCE.md) for the stage table, expected resul
 | data (version) | what we used | how | in the final solution |
 |---|---|---|---|
 | organiser synthetic pairs | 695 pairs (1.0 h) | member training; 209 held out for scoring and fusion training | yes |
-| organiser noise events (noisy minus clean) | 2,213 events (0.4 h) | pasted into training mixtures only; never used at inference | yes |
+| organiser noise events (noisy minus clean) | 2,213 events (0.4 h) | pasted into training mixtures only, all of them (the held-out pairs have unseen speakers, not unseen noises); never used at inference | yes |
 | organiser natural recordings | 555 of 1,806 | evaluation only | no |
 | [ARTPARK-IISc/Vaani-transcription-part](https://huggingface.co/datasets/ARTPARK-IISc/Vaani-transcription-part) (`d2acadff`) | 1,450 long recordings (5.7 h) | long single-recording ASR stream for all three members | yes |
-| same | 908 clean beds (3.2 h) | fusion training mixtures (`fresh2`) | yes |
-| [ai4bharat/indicvoices_r](https://huggingface.co/datasets/ai4bharat/indicvoices_r) (`5f4495c9`) | 1,592 clean beds (6.7 h) | fusion training mixtures (`fresh2`) | yes |
+| same | 710 clean beds (1.4 h), in 908 of the 2,500 fusion clips (3.2 h) | fusion training mixtures (`fresh2`) | yes |
+| [ai4bharat/indicvoices_r](https://huggingface.co/datasets/ai4bharat/indicvoices_r) (`5f4495c9`) | 2,793 clean beds (6.5 h), in 1,592 of the 2,500 fusion clips (6.7 h) | fusion training mixtures (`fresh2`) | yes |
 | same | 198 h more clean speech | member training experiment; no gain | no |
 
   No external noise data, no synthetic (TTS) speech and no test audio is used. A transcript check found no test clip that shares 30% of its word 8-grams with any of the 6,450 training recordings.
@@ -188,9 +190,10 @@ See [`docs/REPRODUCE.md`](docs/REPRODUCE.md) for the stage table, expected resul
 
 **Fusion (`configs/fusion.yaml`):**
 - Trained on held-out-protocol member outputs over:
-  - 2,500 fresh mixtures;
+  - 2,500 fresh mixtures (153 of them held back as the dev set, so 2,347 train);
   - the 209 held-out pairs;
   - the 1,200 simulated clips.
+- MossFormerGAN's inputs are single-pass on fresh2 and valset and 4-shift TTA on the held-out pairs, as in our run; at inference all MossFormerGAN and BSRNN outputs use 4-shift TTA.
 - 3,000 steps, 8 s crops, SI-SDR plus encoder (30), transcript NLL (2.5) and MWER (3).
 - Every step goes through the shipped post-processing.
 

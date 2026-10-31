@@ -2,9 +2,10 @@
 model: "mossgan"
 bs: 4
 lr: 0.0001
-lr_min: 1e-06
+lr_min: 1.0e-06
 warmup: 500
 steps: 40000
+stop_at: 6000                      # only ema_006000 is used; 40k keeps the original learning-rate schedule
 eval_every: 2000
 ema: 0.999
 seg: 32000

@@ -1,4 +1,4 @@
-"""Draws docs/figures/system.pdf: the unified inference path and the ASR-driven training losses."""
+"""Draws docs/figures/system.pdf: the unified inference path and the ASR-driven training losses (needs matplotlib)."""
 import matplotlib
 
 matplotlib.use("Agg")

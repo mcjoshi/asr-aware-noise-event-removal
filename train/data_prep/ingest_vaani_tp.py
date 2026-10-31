@@ -1,7 +1,8 @@
-"""Ingest the transcribed Vaani release (ARTPARK-IISc/Vaani-transcription-part, external data, disclosed) for
-transcript-conditioned labelling. Shard by shard: download, keep clips whose transcript carries at least one noise-event
-tag, drop every clip that is a competition clip or comes from a recording behind any competition test or validation
-clip, write the wav and a manifest row, delete the shard. Resumable (done shards listed in the log).
+"""Ingest the transcribed Vaani release (ARTPARK-IISc/Vaani-transcription-part, external data, disclosed): the source of the
+long-stream beds (train/data_prep/long_beds.py beds keeps the clean ones). Shard by shard: download, keep clips whose
+transcript carries at least one non-speech tag, drop every clip that is a competition clip or comes from a recording
+behind any competition test or validation clip, write the wav and a manifest row, delete the shard. Resumable (done
+shards listed in the log).
 usage: python train/data_prep/ingest_vaani_tp.py [--root data/vaani_tp] [--max-gb 150]   (needs HF_TOKEN with access to the gated release)
 """
 from __future__ import annotations

@@ -104,6 +104,7 @@ def parse():
     ap.add_argument("--lr-min", type=float, default=1e-6)
     ap.add_argument("--warmup", type=int, default=500)
     ap.add_argument("--steps", type=int, default=30000)
+    ap.add_argument("--stop-at", type=int, default=0, help="end after this step (its checkpoint saved); --steps still sets the schedule")
     ap.add_argument("--eval-every", type=int, default=2000)
     ap.add_argument("--ema", type=float, default=0.999)
     ap.add_argument("--seg", type=int, default=32000, help="crop length in samples")
@@ -240,6 +241,8 @@ def main():
             log.flush()
             print(" ".join(f"{k} {v:.4f}" if isinstance(v, float) else f"{k} {v}" for k, v in row.items()), flush=True)
             ls, long_ls = [], []
+            if step == a.stop_at:
+                break
 
 
 if __name__ == "__main__":

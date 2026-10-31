@@ -2,7 +2,7 @@
 inputs on the held-out pairs, the simulated sets and the fusion mixtures.
 
   python train/dump_members.py --model bsrnn_xl --ckpt runs/bsrnnxl_LB/ema_006000.pt --in-dir data/heldout/noisy \
-      --out data/heldout/bsrnnxl_LB_tta --shifts 0,41,83,124
+      --out data/heldout/members/bsrnnxl_LB_tta --shifts 0,41,83,124
 """
 import argparse
 import os

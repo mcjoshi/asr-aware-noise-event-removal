@@ -7,7 +7,7 @@ The README covers the environment, hardware and gated-data access; set those up 
 
 | level | what you run | what you get | verified by us |
 |---|---|---|---|
-| 1. Inference | `scripts/run_inference.sh` with the released checkpoints | the submitted Phase 2 audio, within 1 LSB of 16-bit PCM; the same transcripts | yes (see "Checks we ran") |
+| 1. Inference | `scripts/run_inference.sh` with the released checkpoints | the submitted Phase 2 audio, within 1 LSB of 16-bit PCM; the same transcripts (a 1-LSB difference can rarely flip a greedy ASR decode) | yes (see "Checks we ran") |
 | 2. One training stage | any stage of `scripts/train_all.sh`, started from our released checkpoint of the previous stage | the same training run as ours: same data order, losses and evaluation, up to GPU floating-point nondeterminism | yes, one stage per model family |
 | 3. The whole chain | `scripts/train_all.sh` from the public pretrained models | models of the same quality; not bit-identical weights | the data steps and the trainers are checked; the full 150 GPU-hour chain was not re-run |
 
@@ -17,11 +17,11 @@ The intermediate checkpoints make each stage checkable on its own, so a differen
 
 ## 1. Data
 
-Run the data section of `scripts/train_all.sh` in order. Everything lands in `./data` (symlink it elsewhere if needed).
+Run `bash scripts/train_all.sh data` (or the whole script); re-running skips finished steps. Everything lands in `./data` (symlink it elsewhere if needed).
 
 | step | command | output | deterministic | notes |
 |---|---|---|---|---|
-| noise events | `train/prepare_noisebank.py` | `data/noisebank/` (2,213 events, speaker split) | yes | rebuilt bit-identical to ours |
+| noise events | `train/prepare_noisebank.py` | `data/noisebank/` (2,213 events; all are used for training mixtures, the split marks the held-out pairs' speakers) | yes | rebuilt bit-identical to ours |
 | held-out pairs | `train/data_prep/make_heldout.py` | `data/heldout/` (209 pairs) | yes | rebuilt bit-identical to ours |
 | valset | `train/data_prep/make_valset.py` | `data/valset_p2f/` (1,200 clips) | yes (since the fix below) | see "Known differences" |
 | Vaani ingest | `train/data_prep/ingest_vaani_tp.py` | `data/vaani_tp/` | yes, given the same dataset revision | streams the whole gated release |
@@ -33,21 +33,23 @@ Run the data section of `scripts/train_all.sh` in order. Everything lands in `./
 
 ## 2. Members
 
-Each stage is `python train/train_member.py --config configs/<stage>.yaml`.
-A stage starts from the `init` checkpoint named in its config, so stages must run in the order below, or you can download our checkpoints of the earlier stages first:
+`bash scripts/train_all.sh members` runs all 19 stages in order (a stage whose last checkpoint exists is skipped); each stage is `python train/train_member.py --config configs/<stage>.yaml`.
+A stage starts from the `init` checkpoint named in its config, so stages must run in the order below, or you can download our checkpoints of the earlier stages first and check one stage on its own:
 
 ```bash
 bash scripts/download_stage_checkpoints.sh     # all 19 intermediate checkpoints into runs/
-python train/train_member.py --config configs/loco_MWm.yaml   # e.g. re-run one stage on its own
+python train/train_member.py --config configs/loco_MWm.yaml --out runs/check_loco_MWm   # re-run one stage
 ```
 
+Write a re-run to a new `--out` as above: with the default `out` it would overwrite our checkpoint of that stage, which is the reference to compare with.
+
 Every run writes `runs/<stage>/log.jsonl` with an evaluation on the 209 held-out pairs every `eval_every` steps.
-`ema_raw` is the SI-SDR (dB) of the EMA weights on those pairs, `enc_dist` and `nll` the ASR losses there.
+`ema_raw` is the SI-SDR (dB) of the EMA weights on those pairs, `ema_enc_dist` and `ema_nll` the ASR losses there, `loss` and `long_loss` the training losses since the last evaluation (the step-0 evaluation is printed, not logged).
 For stages trained on all 695 pairs (`*_full`) the held-out pairs are in the training set, so their numbers are a consistency check, not a held-out score.
 
 | stage | starts from | steps | wall-clock* | our final `ema_raw` (dB) |
 |---|---|---|---|---|
-| `mg_sn_a1` | ClearVoice MossFormerGAN | 6,000 used (schedule 40k) | 3 h | 18.39 at 10k |
+| `mg_sn_a1` | ClearVoice MossFormerGAN | 6,000 (`stop_at`; schedule 40k) | 3 h | 18.39 at 10k |
 | `mg_S` | `mg_sn_a1/ema_006000` | 34,000 | 12 h | 19.04 |
 | `mg_SE` | `mg_S/ema_034000` | 4,000 | 1 h | 18.99 |
 | `mg_SEN` | `mg_SE/ema_004000` | 4,000 | 1 h | 19.01 |
@@ -72,9 +74,9 @@ From our three checkpoints this reproduces the shipped `tflocoformer_soup.pt` bi
 
 ## 3. Fusion
 
-1. Run the three held-out-protocol members (`mg_LB`, `bsrnnxl_LB`, the soup) over `data/heldout`, `data/valset_p2f` and the first 2,500 `data/fresh2` clips (section 2 of `train_all.sh`).
-2. `python train/train_fusion.py --config configs/fusion.yaml --out runs/fusion` (3,000 steps, about 5 h, about 10 GB).
-3. Copy the four checkpoints into `checkpoints/` (end of `train_all.sh`) and run inference.
+1. Run the three held-out-protocol members (`mg_LB`, `bsrnnxl_LB`, the soup) over `data/heldout`, `data/valset_p2f` and the first 2,500 `data/fresh2` clips: `bash scripts/train_all.sh dumps`.
+2. `bash scripts/train_all.sh fusion`: trains the fusion (`train/train_fusion.py --config configs/fusion.yaml`, 3,000 steps, about 5 h, about 10 GB; 153 fresh2 clips are held back as its dev set, whose post-processed SI-SDR gain over the fixed mix is logged as `dev_dsi`) and copies the four checkpoints into `checkpoints/`.
+3. Run inference (README).
 
 ## Checks we ran
 
@@ -105,9 +107,9 @@ We re-ran the released scripts in a fresh folder and compared them with the runs
 
 The two trainers agree to the precision that GPU nondeterminism allows: their gap is no larger than the gap between two runs of the same trainer.
 The MWER loss samples hypotheses, so it varies most between runs.
-Logged `post` columns of member runs are not comparable with our logs (our research trainer evaluated with an older post-processing setting); `raw` and `ema_raw` are.
+The `ema_post` columns of member runs are not comparable with our logs (our research trainer evaluated with an older post-processing setting); `ema_raw`, `loss` and `long_loss` are.
 
-**Inference.** In a fresh environment, `infer.py` with the released checkpoints reproduced the submitted audio to within 1 LSB of 16-bit PCM on every sample and gave identical transcripts.
+**Inference.** From a fresh clone of the GitHub repository, with the environment from `scripts/setup_env.sh` and the checkpoints from Hugging Face, `run_inference.sh` reproduced the submitted audio on 20 Phase 2 clips (4 s to 39 s) to within 1 LSB of 16-bit PCM on every sample, with all 20 transcripts identical. In an earlier 7-clip check, one transcript differed: a 1-LSB difference flipped the ASR's greedy decode.
 
 **Environments.** `scripts/setup_env.sh inference` and `scripts/setup_env.sh train` both build from scratch, and every training and data-preparation script starts in the training environment.
 
@@ -115,5 +117,7 @@ Logged `post` columns of member runs are not comparable with our logs (our resea
 
 - **valset noise floor.** Our original `valset_p2f` was built by a version of `make_valset.py` that seeded the noise filling each bed's silent gaps by the order of a Python `set`, which changes from run to run. The released script visits the beds in sorted order, so it is now deterministic, but no run can reproduce our original copy bit-exactly. The clips, beds, events and placements are identical; the differences are in that low-level gap noise (at most 0.4% of full scale in 1,307 of 2,400 files). valset is one of the three fusion training sets.
 - **Vaani revision.** The fusion and long beds were downloaded at dataset revision `d2acadff`; the earlier Vaani ingest's revision was not recorded. If the release has changed since, a few beds may differ.
-- **MossFormerGAN `mg_sn_a1`** ran 10k of its 40k-step schedule; only `ema_006000` is used, so the run can be stopped there.
+- **MossFormerGAN `mg_sn_a1`** ran 10k of its 40k-step schedule in our run; only `ema_006000` is used, so its config stops there (`stop_at: 6000`, schedule unchanged).
+- **valset_long** excludes the speakers of an earlier bed set that existed on our machine; their list ships as `train/data_prep/gold_speakers.json`, so the selection is the same.
+- **Held-out pairs and noise.** The 209 held-out pairs have speakers the held-out-protocol members never saw, but their noise events are among the 2,213 used in every training mixture. In our tests, hearing the exact pool events made no difference to new speakers (18.64 dB with and without), so the held-out scores reflect new speakers.
 - **GPU nondeterminism**, as above.

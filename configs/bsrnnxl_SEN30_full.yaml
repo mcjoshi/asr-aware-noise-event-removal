@@ -4,8 +4,8 @@ init: "runs/bsrnnxl_SE_full/ema_030000.pt"
 full: true
 bs: 4
 accum: 2
-lr: 5e-05
-lr_min: 1e-06
+lr: 5.0e-05
+lr_min: 1.0e-06
 warmup: 200
 steps: 6000
 eval_every: 2000
