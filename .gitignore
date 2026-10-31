@@ -1,4 +1,6 @@
 checkpoints/*.pt
+checkpoints/*/
+.cache/
 track2/third_party/tflocoformer/model.pth
 data/
 runs/

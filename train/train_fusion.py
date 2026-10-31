@@ -28,7 +28,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 import track2.losses as L  # noqa: E402
 from track2.audio import SR, si_sdr, si_sdr_loss  # noqa: E402
 from track2.fusion import FusionNet, run_fusion  # noqa: E402
-from track2.post import post_weights  # noqa: E402
+from track2.post import post, post_weights  # noqa: E402
 
 
 def ls_scale(e, y):
@@ -139,12 +139,13 @@ def main():
         return (W * e + (1 - W) * y) * G
 
     def evaluate():
+        """Dev SI-SDR gain over the fixed mix, both through the shipped post-processing (as in our training logs)."""
         net.eval()
         d = []
         for _, y, s, X in dv:
             e = run_fusion(net, dev, y, X)
             b = (np.array(w0)[:, None] * X).sum(0)
-            d.append(si_sdr(s, e) - si_sdr(s, b))
+            d.append(si_sdr(s, post(y, e)) - si_sdr(s, post(y, b)))
         net.train()
         return {"dev_dsi": float(np.mean(d))}
 

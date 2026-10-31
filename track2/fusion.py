@@ -1,4 +1,4 @@
-"""Learned per-cell fusion of the three member estimates (0.35M parameters).
+"""Learned per-cell fusion of the three member estimates (0.34M parameters).
 
 Inputs are the members' STFTs (each least-squares scaled onto the noisy input) and the noisy STFT. A dilated
 convolutional network predicts, for every time-frequency cell, softmax weights over the members (initialised at the

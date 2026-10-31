@@ -3,6 +3,8 @@
 The forward replicates ClearVoice's own decoder exactly (RMS normalisation, padding to a multiple of the hop, STFT, power
 compression, model, uncompression, iSTFT, denormalisation), so training and inference use the same signal path.
 """
+import os
+
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -44,6 +46,9 @@ def load_model(dev, ckpt=None):
     SpeechModel.get_free_gpu = lambda self: 0 if dev.startswith("cuda") else None
     cv = ClearVoice(task="speech_enhancement", model_names=["MossFormerGAN_SE_16K"])
     sm = cv.models[0]
+    ckdir = getattr(getattr(sm, "args", None), "checkpoint_dir", "checkpoints/MossFormerGAN_SE_16K")
+    if not os.path.exists(os.path.join(ckdir, "last_best_checkpoint")):   # ClearVoice ignores download failures
+        raise RuntimeError(f"MossFormerGAN_SE_16K weights missing in {ckdir}: ClearVoice could not download them")
     sm.device = torch.device(dev)
     if hasattr(sm, "args"):
         sm.args.use_cuda = 1 if dev.startswith("cuda") else 0

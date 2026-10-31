@@ -77,7 +77,7 @@ def enc_dist(est, cl, ee=None):
 
 
 def load_teacher(teacher_dir):
-    """Greedy SraVaani tokens and frames of every decoded clean bed, by bed key (t2p2_tdt_teacher.py)."""
+    """Greedy SraVaani tokens and frames of every decoded clean bed, by bed key (train/data_prep/make_teacher.py)."""
     lab = {}
     for f in sorted(os.listdir(teacher_dir)):
         if f.endswith(".pt"):

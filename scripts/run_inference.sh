@@ -4,5 +4,5 @@
 set -e
 cd "$(dirname "$0")/.."
 IN=${1:?input dir of 16 kHz wavs}; OUT=${2:?output dir}; ZIP=${3:-$OUT/submission.zip}
-[ -f checkpoints/fusion.pt ] || bash scripts/download_checkpoints.sh
+for f in mossformergan bsrnn_xl tflocoformer_soup fusion; do [ -f checkpoints/$f.pt ] || { bash scripts/download_checkpoints.sh; break; }; done
 python inference/infer.py --input-dir "$IN" --output-dir "$OUT" --checkpoints checkpoints --zip "$ZIP"

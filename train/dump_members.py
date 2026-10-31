@@ -23,13 +23,14 @@ def main():
     ap.add_argument("--in-dir", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--shifts", default="0", help="comma-separated sample delays averaged as test-time augmentation")
+    ap.add_argument("--limit", type=int, default=0, help="first N clips by name (the fusion's set limit)")
     a = ap.parse_args()
     shifts = tuple(int(k) for k in a.shifts.split(","))
     torch.backends.cuda.matmul.allow_tf32 = True
     mem = MEMBERS[a.model]("cuda", a.ckpt)
     mem.net.eval()
     os.makedirs(a.out, exist_ok=True)
-    ids = sorted(f[:-4] for f in os.listdir(a.in_dir) if f.endswith(".wav"))
+    ids = sorted(f[:-4] for f in os.listdir(a.in_dir) if f.endswith(".wav"))[:a.limit or None]
     with torch.no_grad():
         for c in ids:
             if os.path.exists(os.path.join(a.out, f"{c}.wav")):

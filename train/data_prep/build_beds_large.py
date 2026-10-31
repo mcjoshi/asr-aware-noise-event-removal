@@ -7,6 +7,7 @@ percentile under the same scoring rule. All candidate scores are logged so thres
 revisited without re-scoring.
 
   python3 build_beds_large.py calibrate
+  python3 build_beds_large.py download --shard-list train/data_prep/bed_shards.json      (exact released shards)
   python3 build_beds_large.py download --shards 30 --langs Hindi:80,Maithili:45
   CUDA_VISIBLE_DEVICES=0 python3 build_beds_large.py process --device cuda --workers 4
   python3 build_beds_large.py download --source tp --langs Bhojpuri:99,Chhattisgarhi:99
@@ -30,7 +31,7 @@ from multiprocessing import Pool
 import numpy as np
 import soundfile as sf
 
-DATA = os.environ.get("TRACK2_DATA", "data")   # data root, see README "Data layout"
+DATA = "data"   # data root, see README "Data layout"
 OUT = os.path.join(DATA, "beds_large")
 RAW = os.path.join(DATA, "beds_large_raw")
 REFS = os.path.join(DATA, "validation", "syntheticCleanRefAudio")
@@ -38,6 +39,7 @@ VALSET = os.path.join(DATA, "valset_p2f", "clean")
 EXCLUDE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "exclude.json")
 IVR = "ai4bharat/indicvoices_r"
 TP = "ARTPARK-IISc/Vaani-transcription-part"
+SHARDS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bed_shards.json")   # exact shards and revisions used
 SR = 16000
 LANGS = ["Manipuri", "Malayalam", "Bengali", "Punjabi", "Nepali", "Hindi", "Odia", "Konkani", "Telugu",
          "Maithili", "Marathi", "Assamese", "Kannada", "Tamil", "Gujarati"]
@@ -173,6 +175,13 @@ def download(a):
     from huggingface_hub import HfApi, hf_hub_download
     tok = hf_token()
     repo = IVR if a.source == "ivr" else TP
+    rev = None
+    if a.shard_list:   # the exact shards (and dataset revision) the released beds were built from
+        spec = json.load(open(a.shard_list))[a.source]
+        want, rev = spec["files"], spec["revision"]
+        print(f"{len(want)} shards from {a.shard_list} at {rev[:8]}")
+        _fetch(a, repo, rev, tok, want)
+        return
     files = HfApi(token=tok).list_repo_files(repo, repo_type="dataset")
     per = {k: int(v) for k, v in (s.split(":") for s in a.langs.split(","))} if a.langs else {}
     want = []
@@ -185,12 +194,17 @@ def download(a):
         idx = sorted({int(round(i)) for i in np.linspace(0, len(tr) - 1, k)}) if k > 1 else [len(tr) // 2]
         want += [tr[i] for i in idx]  # evenly spread over the index for speaker variety
     print(f"{len(want)} shards")
+    _fetch(a, repo, rev, tok, want)
+
+
+def _fetch(a, repo, rev, tok, want):
+    from huggingface_hub import hf_hub_download
 
     def get(f):
         rel = f.removeprefix("audio/")
         if os.path.exists(f"{RAW}/{a.source}/{rel}") or os.path.exists(f"{RAW}/scores/{a.source}/{rel}.jsonl"):
             return
-        hf_hub_download(repo, f, repo_type="dataset", token=tok, local_dir=f"{RAW}/{a.source}")
+        hf_hub_download(repo, f, repo_type="dataset", revision=rev, token=tok, local_dir=f"{RAW}/{a.source}")
         if f != rel:
             os.makedirs(os.path.dirname(f"{RAW}/{a.source}/{rel}"), exist_ok=True)
             os.replace(f"{RAW}/{a.source}/{f}", f"{RAW}/{a.source}/{rel}")
@@ -438,9 +452,9 @@ def write_readme(a, keep, summ, cal, pesq_min):
         "", "## Rebuild", "",
         "```",
         "python3 build_beds_large.py calibrate",
-        "python3 build_beds_large.py download --shards 30 --langs Hindi:80,Maithili:45,Nepali:42,Tamil:40,Marathi:38,Konkani:36",
-        "python3 build_beds_large.py process --device cuda --workers 4   # CUDA_VISIBLE_DEVICES=0; CPU runs can share the queue",
-        "python3 build_beds_large.py download --source tp --langs Chhattisgarhi:99,Magadhi:99,Magahi:99,Bhojpuri:99,Hindi:3,...",
+        "python3 build_beds_large.py download --shard-list bed_shards.json",
+        "python3 build_beds_large.py process --device cuda --workers 4",
+        "python3 build_beds_large.py download --source tp --shard-list bed_shards.json",
         "python3 build_beds_large.py process --source tp --device cuda --workers 4",
         f"python3 build_beds_large.py finalize --hours {a.hours:g}{' --hours-lang ' + a.hours_lang if a.hours_lang else ''} "
         f"--spk-cap-min {a.spk_cap_min:g}",
@@ -470,6 +484,7 @@ def main():
     ap.add_argument("--shards", type=int, default=20, help="train shards per language, spread over the index")
     ap.add_argument("--langs", default="", help="per-language shard counts, e.g. Hindi:50,Gujarati:99")
     ap.add_argument("--only", action="store_true", help="download only the languages named in --langs")
+    ap.add_argument("--shard-list", default="", help=f"download exactly these shards (the released beds: {os.path.basename(SHARDS)})")
     ap.add_argument("--min-dur", type=float, default=3.0)
     ap.add_argument("--max-dur", type=float, default=15.0)
     ap.add_argument("--min-vad", type=float, default=0.5)

@@ -16,7 +16,7 @@ import numpy as np
 import soundfile as sf
 
 SR = 16000
-DATA = os.environ.get("TRACK2_DATA", "data")
+DATA = "data"
 
 
 def _floor_db(path):
@@ -119,7 +119,7 @@ def main():
     p.add_argument("--dur-median", type=float, default=8.0)
     p.add_argument("--min-s", type=float, default=3.0)
     p.add_argument("--max-s", type=float, default=16.0)
-    p.add_argument("--bed-db", type=float, default=-3.5, help="bed level against the held-out references, as t2p2_make_valset.py")
+    p.add_argument("--bed-db", type=float, default=-3.5, help="bed level against the held-out references, as make_valset.py")
     p.add_argument("--rate", type=float, default=0.5)
     p.add_argument("--gain-median", type=float, default=0.93)
     p.add_argument("--gain-sigma", type=float, default=0.80)

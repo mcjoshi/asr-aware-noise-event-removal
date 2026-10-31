@@ -17,6 +17,7 @@ import soundfile as sf
 from huggingface_hub import HfApi, hf_hub_download
 
 REPO = "ARTPARK-IISc/Vaani-transcription-part"
+REV = "d2acadff1ccce766d127c11b1a157251460dd68a"   # revision of our bed downloads; the ingest's own revision was not recorded
 NONEV = {"noise", "pause", "static noise", "talking", "unintelligible", "people talking", "inaudible"}
 TAG = re.compile(r"\[([^\]]+)\]|<([^/>][^>]*)>")
 
@@ -36,14 +37,17 @@ def n_events(t: str) -> int:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--root", default=os.path.join(os.environ.get("TRACK2_DATA", "data"), "vaani_tp"))
+    ap.add_argument("--root", default=os.path.join("data", "vaani_tp"))
     ap.add_argument("--max-gb", type=float, default=150.0, help="per wav directory; past it, spill to --spill-dir")
     ap.add_argument("--spill-dir", default="", help="second wav directory used once --root holds --max-gb")
+    ap.add_argument("--revision", default=REV)
     a = ap.parse_args()
-    tok = os.environ["HF_TOKEN"]
+    tok = os.environ.get("HF_TOKEN")
+    if not tok:
+        raise SystemExit("HF_TOKEN is not set: the Vaani release is gated (README, Access)")
     ex = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "exclude.json"))); clips = set(ex["clips"]); blocked = set(ex["blocked_recordings"])
     log = f"{a.root}/ingest.log"; done = set(l.split("\t")[1] for l in open(log) if l.startswith("DONE")) if os.path.exists(log) else set()
-    files = sorted(s.rfilename for s in HfApi(token=tok).dataset_info(REPO).siblings if s.rfilename.endswith(".parquet"))
+    files = sorted(s.rfilename for s in HfApi(token=tok).dataset_info(REPO, revision=a.revision).siblings if s.rfilename.endswith(".parquet"))
     wavdir = f"{a.root}/wav"; os.makedirs(wavdir, exist_ok=True)
     man = open(f"{a.root}/manifest.jsonl", "a")
     for f in files:
@@ -51,7 +55,7 @@ def main() -> None:
             continue
         if a.spill_dir and wavdir != a.spill_dir and sum(e.stat().st_size for e in os.scandir(wavdir)) / 1e9 > a.max_gb:
             wavdir = a.spill_dir; os.makedirs(wavdir, exist_ok=True); print(f"SPILL to {wavdir}", flush=True)
-        p = hf_hub_download(REPO, f, repo_type="dataset", token=tok, local_dir=f"{a.root}/tmp")
+        p = hf_hub_download(REPO, f, repo_type="dataset", revision=a.revision, token=tok, local_dir=f"{a.root}/tmp")
         t = pq.read_table(p, columns=["audio", "language", "state", "district", "transcript"])
         kept = skipped = tagless = 0
         for r in t.to_pylist():

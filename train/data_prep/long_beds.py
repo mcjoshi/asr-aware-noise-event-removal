@@ -7,8 +7,8 @@ there is no clipping or long digital silence, and the recording is outside exclu
 Speakers are split by a fixed hash into an evaluation pool and a training pool before anything is selected;
 evaluation speakers also avoid every organiser validation speaker and every bed any training run has used.
 
-  beds   : python3 long_beds.py beds --out $TRACK2_DATA/beds_long
-  valset : python3 long_beds.py valset --out $TRACK2_DATA/valset_long --n 400
+  beds   : python3 long_beds.py beds --out data/beds_long
+  valset : python3 long_beds.py valset --out data/valset_long --n 400
 """
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ import soundfile as sf
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-DATA = os.environ.get("TRACK2_DATA", "data")   # data root, see README "Data layout"
+DATA = "data"   # data root, see README "Data layout"
 SR = 16000
 T2 = DATA
 TP = os.path.join(DATA, "vaani_tp")

@@ -66,7 +66,7 @@ def transcribe_and_zip(a, ids):
     from huggingface_hub import snapshot_download
     from transformers import AutoModel
     path = os.environ.get("SRAVAANI") or snapshot_download(ASR_REPO, revision=ASR_REV)
-    asr = AutoModel.from_pretrained(path, trust_remote_code=True).to("cuda").eval()
+    asr = AutoModel.from_pretrained(path, trust_remote_code=True).to(a.device).eval()
     hyps = asr.transcribe([os.path.join(a.output_dir, f"{c}.wav") for c in ids], return_hypotheses=True)
     texts = {c: getattr(h, "text", str(h)) for c, h in zip(ids, hyps)}
     print(f"ASR done | empty transcripts: {sum(1 for t in texts.values() if not t.strip())}", flush=True)

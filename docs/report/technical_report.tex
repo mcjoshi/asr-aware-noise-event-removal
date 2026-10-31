@@ -9,6 +9,7 @@
 \setlength{\dbltextfloatsep}{6pt}
 \setlength{\abovedisplayskip}{3pt}
 \setlength{\belowdisplayskip}{3pt}
+\newcommand{\ns}{$^\circ$}
 
 \begin{document}
 
@@ -20,306 +21,300 @@
 \maketitle
 
 \begin{abstract}
-We remove noise events from Indic field speech so that both the waveform (SI-SDR on synthetic clips) and the
-recognisability of the speech (word error rate reduction, $\Delta$WER, of the mandated SraVaani-1.0 ASR) improve. Our
-system processes every clip identically: three public pretrained enhancers of different families (MossFormerGAN, a
-104M band-split RNN, TF-Locoformer) are fine-tuned \emph{through the frozen scoring ASR} with an encoder-distance loss, a
-TDT transcript likelihood and a deletion-weighted minimum-word-error (MWER) loss, using a long single-recording training
-stream that matches the test clip length; a 0.35M-parameter network fuses their estimates per time-frequency cell. The
-final entry scores Combined 19.90 (SI-SDR 15.79\,dB; $\Delta$WER $+11.66$\,pp synthetic, $+0.54$\,pp natural) and passed
-the organisers' ASR audit. A diagnosis of where words are lost shows that the remaining synthetic errors are deletions
-under loud events and that natural-clip errors are mostly not caused by noise.
+We remove noise events from Indic field speech to maximise Combined $=$ SI-SDR $+$ 100$\times$ the word error rate
+reduction ($\Delta$WER) of the mandated SraVaani-1.0 ASR. Every clip takes the same path: three public enhancers of
+different families (MossFormerGAN, a 104M band-split RNN, TF-Locoformer) are fine-tuned \emph{through the frozen
+scoring ASR} on a test-length single-recording stream, and a 0.34M-parameter network fuses them per time-frequency
+cell, trained with the same losses plus a deletion-weighted minimum word error (MWER) risk. The final entry scores
+Combined 19.897 (SI-SDR 15.793\,dB, pooled $\Delta$WER $+4.104$\,pp). Out of sample, it recovers 53\% of the
+clean-speech word gain on test-length clips; 89\% of the words still lost are deletions under events.
 \end{abstract}
 
 \section{Training Data and Preprocessing}
 \textbf{Vaani validation set.} The organisers' validation release provides 695 synthetic pairs (clean reference and
-noisy mixture, 4.5\,s median) and 1,806 natural field recordings with human transcripts. We split validation speakers
-by a fixed hash (70/30): 486 pairs train the \emph{held-out-protocol} models and 209 pairs from unseen speakers are kept
-for honest scoring and as fusion training inputs. Shipped MossFormerGAN and BSRNN models are retrained on all 695 pairs.
-The 555-clip speaker-disjoint half of the natural clips is used only to measure natural $\Delta$WER.
+noisy mixture, 4.5\,s median) and 1,806 natural recordings with human transcripts (27 languages). A speaker hash splits
+the pairs 70/30: 486 train the \emph{held-out-protocol} members and 209 are never seen by them; the shipped
+MossFormerGAN and BSRNN are retrained on all 695. Natural clips are never trained on; a fixed 30\% hash subset (555
+clips, 7,834 words) measures natural $\Delta$WER.
 
-\textbf{Noise events (augmentation only).} The organisers' mixing is additive, so noisy minus clean recovers each
-interferer exactly; cutting it at the annotated event spans gives 2,213 noise events. They are used only to synthesise
-training mixtures; nothing at inference reads, matches or subtracts them.
+\textbf{Noise events (augmentation only).} Noisy minus clean, cut at the annotated spans, gives 2,213 events (23\,min,
+7 categories), split by the speaker hash; they only synthesise training mixtures.
 
 \textbf{Augmentation pipeline.} Each crop (2\,s for MossFormerGAN, 4\,s otherwise) is, with probability 0.5, a real
-pair, else a clean reference re-mixed with 1--3 random events at an SNR drawn from the real pairs' SNRs; mixtures above
-full scale are normalised. A \emph{long stream} adds one micro-batch per step of 12--18\,s single-speaker windows from
-1,450 recordings, with events pasted as the organisers' generator does (Poisson 0.5 events/s, gain log-normal around
-0.93, $\sigma=0.8$) and the bed level drawn from the references' RMS; it trains the ASR losses only.
+pair, else a clean reference re-mixed with 1--3 random events at an SNR drawn from the real pairs (normalised if above
+full scale). A \emph{long stream} adds one micro-batch per step of 12--18\,s windows of single-speaker \emph{beds}
+(clean recordings), with events pasted as in the organisers' mixtures (Poisson 0.5 events/s, log-normal gain, median
+0.93 on the event's amplitude, $\sigma{=}0.8$) at reference levels; it trains only the ASR losses (rationale 2 in Section~II).
 
-\textbf{External data.} ARTPARK-IISc/Vaani-transcription-part~\cite{vaani} supplies the long beds and part of the fusion
-beds; IndicVoices-R~\cite{ivr} supplies fusion beds. Every competition clip and every recording behind a competition clip
-was excluded, beds were screened for quiet pauses, benign transcript tags and no clipping, and levels follow the
-organiser references. SraVaani greedy tokens of each clean bed, decoded once at full context, serve as transcript
-teachers. No test audio is used for training.
+\textbf{External data} (Table~\ref{tab:data}). Two public corpora supply clean speech \emph{beds}: Vaani-transcription-part
+(the long beds and 908 fusion beds) and IndicVoices-R (1,592 fusion beds). Competition clips and every recording behind
+a validation or Phase 1 test clip were excluded by name; beds were screened with Silero-VAD~\cite{silero} and
+TorchAudio-SQUIM~\cite{squim}. Each clean bed's greedy SraVaani
+transcript is its target (self-distillation). No test audio is used; no test clip shares 30\% of its word 8-grams
+with any of the 6,450 training recordings.
 
 \begin{table}[t]
-\caption{Data used. Only the first two rows are organiser data; nothing from the test set is used for training.}
+\caption{Every dataset we used, and its role in the final solution. No test audio, external noise or synthetic (TTS)
+speech is used anywhere.}
 \label{tab:data}
 \centering\scriptsize
-\setlength{\tabcolsep}{2.5pt}
+\setlength{\tabcolsep}{2pt}
 \resizebox{\columnwidth}{!}{%
-\begin{tabular}{@{}llrrl@{}}
+\begin{tabular}{@{}lllc@{}}
 \toprule
-Set & Source & Clips & Hours & Use \\
+Data (source, version) & Used & How & Final \\
 \midrule
-Synthetic pairs & Vaani validation & 695 & 1.0 & members (486), held-out (209) \\
-Natural clips & Vaani validation & 1,806 & 2.5 & natural $\Delta$WER (555) \\
-Noise events & noisy $-$ clean of the pairs & 2,213 & 0.4 & augmentation only \\
-Long beds & Vaani transcription release & 1,450 & 5.7 & long ASR stream \\
-fresh2 & IndicVoices-R, Vaani beds + events & 5,000 & 19.8 & fusion training (2,500) \\
-valset & held-out beds + events & 1,200 & 4.2 & fusion training, evaluation \\
-valset\_long & unseen Vaani speakers + events & 360 & 1.3 & evaluation (test length) \\
+\multicolumn{4}{@{}l}{\emph{Organiser data (Vaani validation release)}} \\
+Synthetic pairs & 695 pairs, 1.0\,h & member training; 209 held out & yes \\
+Noise events (noisy $-$ clean) & 2,213, 0.4\,h & training mixtures only & yes \\
+Natural recordings & 555 of 1,806 & evaluation only & no \\
+\multicolumn{4}{@{}l}{\emph{External data, gated, used with all competition recordings excluded}} \\
+Vaani-transcription-part~\cite{vaani} (\texttt{d2acadf}) & 1,450 long beds, 5.7\,h & long ASR stream, all members & yes \\
+ & 908 beds, 3.2\,h & fusion training mixtures & yes \\
+IndicVoices-R~\cite{ivr} (\texttt{5f4495c}) & 1,592 beds, 6.7\,h & fusion training mixtures & yes \\
+ & 198\,h more & member training (Table~\ref{tab:tried}) & no \\
+\multicolumn{4}{@{}l}{\emph{Simulated from the above (events pasted onto clean beds)}} \\
+fresh2 & 2,500 clips, 9.9\,h & fusion training & yes \\
+valset & 1,200 clips, 4.2\,h & member screening; fusion training & yes \\
+valset\_long & 360 clips, 1.3\,h & evaluation only & no \\
 \bottomrule
 \end{tabular}}
 \end{table}
 
-\textbf{Simulated sets for the fusion.} Table~\ref{tab:data} summarises all data (long beds: 1,291 speakers, 29
-languages; noise events: 23\,min in 7 categories). \emph{fresh2}: 5,000 test-shaped single-speaker mixtures (8--18\,s, 0.65
-events/s) on beds unseen by every held-out-protocol member (2,500 used); \emph{valset}: 1,200 Phase-2-shaped clips on
-held-out speakers; \emph{valset\_long}: 360 test-length clips from unseen speakers for evaluation.
+\textbf{Simulated sets}: \emph{fresh2} is 8--18\,s single recordings (0.65 events/s) on beds no member saw;
+\emph{valset} glues held-out speakers' references (33.8k words); \emph{valset\_long} has one recording per unseen speaker.
 
 \section{Proposed Method}
+\textbf{Design rationale.} Four early measurements shaped the system. (1) \emph{Waveform quality does not buy
+words}: on valset, at the same SI-SDR (15.8\,dB), clean speech with the events turned down 20\,dB recovers 92\% of the
+clean-speech word gain, our first blend only 32\%, and every architecture we trained kept only 47--57\% of the speech
+energy in cells where an event dominates. So we train through the scoring ASR. (2) \emph{The test is longer, and about as hard}: test
+clips match our pairs in estimated SNR ($-3.4$ vs $-2.5$\,dB median) but last 13\,s against 4.5\,s (lengths and
+estimated SNRs of the unlabelled test inputs are the only test statistics we used), and SraVaani's encoder states on 2\,s crops
+differ from their full-context values (cosine distance 0.24; 0.08 at 8\,s). So the ASR losses also see 12--18\,s
+single recordings. (3) \emph{Diversity comes from families, not seeds}: errors of two seeds of one model correlate
+0.95--0.99, a new family's errors only 0.69 with our mix, and on the board each of two families alone scored 0.6--1.0
+Combined below their blend. So we
+fuse three families per cell. (4) \emph{Lost words are deletions} (71\% of the gap to clean speech early on, 89\% in the
+final system), so the word-error risk charges deletions double.
+
+\textbf{Contributions.} Beyond mimic losses~\cite{mimic}, observation adding~\cite{obsadd,artifacts} and sampled
+MWER~\cite{shannon,mwer}: (i) enhancer losses on the scoring ASR's own TDT lattice, with a deletion-weighted MWER via
+REINFORCE~\cite{reinforce}; (ii) a test-length stream for them; (iii) a per-cell fusion with an anchored observation
+term.
+
 \begin{figure}[t]
 \centering
-\includegraphics[width=\columnwidth]{../figures/system.pdf}
-\caption{The unified pipeline. Every clip takes the same path; the fusion predicts per-cell member weights and a bounded
-readmission of the input.}
+\includegraphics[width=0.88\columnwidth]{../figures/system.pdf}
+\caption{Every clip takes the same path (top). In training only, the frozen scoring ASR scores the members and the fused output (bottom); MWER is used in the fusion and one TF-Locoformer fine-tune.}\vspace{-2pt}
 \label{fig:system}
 \end{figure}
 
-\textbf{Members.} Fig.~\ref{fig:system} shows the system and Table~\ref{tab:models} lists the pretrained start points and roles. All three are fine-tuned with
+\begin{table*}[t]
+\caption{What we tried. Each change is measured paired against its own control on a set the compared models never
+trained on (sim = valset, 33.8k words; long = valset\_long; h/o = 209 held-out pairs, fusions 2-fold out-of-fold; nat =
+555 natural clips). Words: $\Delta$WER change in pp [95\% CI]; \ns{} CI includes zero. Board: change in Combined of a
+single upload (noise about $\pm0.1$). MFGAN = MossFormerGAN, TF-Loco = TF-Locoformer. $^\dagger$Exceptions to the keep rule: three members kept for
+simplicity at equal words; the MWER fine-tune kept only as one of three soup ingredients.}
+\label{tab:tried}
+\centering\scriptsize
+\setlength{\tabcolsep}{3.2pt}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{@{}lllllrc@{}}
+\toprule
+Change & Model & Set & Words (pp) & SI-SDR (dB) & Board & Kept \\
+\midrule
+\multicolumn{7}{@{}l}{\emph{ASR-aware losses (rationale 1, 2, 4)}} \\
+Encoder distance, weight 30 & MFGAN & sim & $+0.30$ [0.06, 0.53] & $0.00$ & & yes \\
+Encoder distance, weight 30, 8k steps & MP-SENet & sim & $+0.54$ [0.24, 0.81] & $0.00$ & $+0.18$ & yes \\
++ transcript NLL, weight 2.5 & BSRNN 38M; 104M; MFGAN & sim & $+0.61$ [0.36, 0.85]; $+0.43$ [0.22, 0.65]; $+0.24$ [0.03, 0.50] & $+0.05$; $0.00$; $0.00$ & & yes \\
+Heavier weights (encoder 100; NLL 7.5) & MP-SENet; BSRNN 38M & sim & $+0.05$; $-0.09$\ns & $-0.11$; $-0.07$ & & no \\
+Long single-recording stream (2 seeds) & BSRNN 38M & sim; long & $+1.47$ [1.18, 1.78]; $+0.38$ [0.14, 0.62] & $+0.30$; -- & & yes \\
+Long stream also on MFGAN and TF-Loco & 3 members & long & $+0.33$ [0.07, 0.60] & $+0.23$ & $+0.11$ & yes \\
+MWER (weight 3) on a member & TF-Loco & long & $-0.17$\ns & -- & $+0.02$ & soup$^\dagger$ \\
+MWER in the fusion & fusion & long & $+0.26$ [0.10, 0.43] & $-0.02$ & $+0.04$ & yes \\
+Words-first fusion (ASR losses $\times3$) & fusion & nat; long & $+0.14$ [0.01, 0.26]; $+0.05$\ns & $-0.19$ (long) & $-0.02$ & no \\
+Learned per-cell fusion vs fixed mix & fusion & h/o & $+0.04$\ns & $+0.058$ [0.021, 0.095] & $+0.13$ & yes \\
+\multicolumn{7}{@{}l}{\emph{Members and data (rationale 3)}} \\
+Add TF-Locoformer (error corr.\ 0.69 vs 0.82--0.90) & mix & long & -- & $+0.79$ (351/360 clips) & $+1.37$ & yes \\
+Three members instead of eight & fusion & long & $-0.04$\ns & $-0.11$ & $+0.02$ & yes$^\dagger$ \\
+Drop MossFormerGAN (two members) & fusion & board & & & $-0.08$ & no \\
+Weight soup of three fine-tunes & TF-Loco & h/o & $+0.17$\ns & $+0.085$ [0.056, 0.118] & $+0.03$ & yes \\
+198\,h more clean speech (IndicVoices-R) & 4 families & h/o & $+0.10$\ns & $-0.05$ to $-0.17$ & & no \\
+Other pretrained models (Table~\ref{tab:models}) & mix & h/o & $-3.5$ (UniPASE) & $-2.4$ to $-8.6$ & & no \\
+\multicolumn{7}{@{}l}{\emph{Targets, fusion and post-processing}} \\
+Speech-intact target (noise left at $-20$\,dB) & TF-Loco & long & $-0.20$\ns & $-4.5$ & & no \\
+Two-stage member; ASR-feature inputs; routing probe & fusion & long & $-0.02$ to $+0.13$\ns & $-0.06$ to $+0.02$ & & no \\
+Louder output (peak normalisation) & post & sim & $+0.71$ [0.47, 0.97] & $0.00$ & $-0.19$ & no \\
+\bottomrule
+\end{tabular}}
+\end{table*}
+
+\textbf{Members} (Fig.~\ref{fig:system}, Table~\ref{tab:models}) are fine-tuned with
 \begin{equation}
-\mathcal{L}=-\text{SI-SDR}(\hat{s},s)+30\,d_{\text{enc}}(\hat{s},s)+2.5\,\mathcal{L}_{\text{NLL}}(\hat{s})+\lambda\,\mathcal{L}_{\text{MWER}}(\hat{s}),
+\mathcal{L}=-\text{SI-SDR}(\hat{s},s)+30\,d_{\text{enc}}(\hat{s},s)+2.5\,\mathcal{L}_{\text{NLL}}+\lambda\,\mathcal{L}_{\text{MWER}},
 \end{equation}
-where $d_{\text{enc}}$ is the mean per-frame cosine distance between SraVaani encoder states of the estimate and of clean
-speech, computed through a differentiable copy of the ASR front end; $\mathcal{L}_{\text{NLL}}$ is the TDT~\cite{tdt}
-negative log-likelihood of the clean speech's teacher tokens on the estimate's lattice (a custom forward recursion,
-with crop edges handled by letting paths start and end inside a margin); and $\mathcal{L}_{\text{MWER}}$ draws $N{=}4$
-ancestral samples from the TDT decoder per window of 8\,s or more and applies REINFORCE with a mean baseline to their
-word cost against the teacher transcript, a deletion costing 2 words~\cite{mwer}. The ASR is frozen; gradients reach
-only the enhancer. MossFormerGAN keeps its compressed-spectrum L1 term. Optimisation uses AdamW, warm-up then cosine
-decay, gradient clipping at 5 and an EMA of the weights (0.999--0.9995), in stages: noise-removal pre-training, then
-the encoder loss, the transcript loss and finally the long stream (MossFormerGAN 9 stages, BSRNN 6; exact
-configurations are in the repository). TF-Locoformer starts from MERL's checkpoint with all losses and the long stream
-for 20k steps; three 4k-step continuations (with MWER $\lambda{=}3$, without, and with events 6\,dB louder) are averaged
-into one model, a weight soup~\cite{soup} that costs nothing at inference.
+plus $15\times$ the compressed-spectrum L1 loss for MossFormerGAN. $d_{\text{enc}}$ is the mean per-frame cosine distance
+between SraVaani's final encoder states of the estimate and of clean speech (differentiable front end). $\mathcal{L}_{\text{NLL}}$ is the TDT~\cite{tdt} negative log-likelihood, on the estimate's lattice, of the teacher
+tokens inside the crop (decoded once on the full clean recording, with their frame times), divided by the token count;
+paths may start and end within 240\,ms of a crop edge. $\mathcal{L}_{\text{MWER}}$ draws $N{=}4$ ancestral samples per window of 8\,s or more (the long
+stream) and weights each sample's log-likelihood by its word cost against the teacher (deletions cost 2) minus the mean
+of the four, divided by $N\times$ reference words. $\lambda{=}3$ in one of the three
+TF-Locoformer fine-tunes and in the fusion, otherwise 0. The ASR is frozen; gradients reach only the enhancer.
+\emph{Training} (AdamW, warm-up, cosine decay, clipping at 5, weight EMA 0.999--0.9995): MossFormerGAN (2\,s crops,
+batch 4) for 40k steps with SI-SDR and L1 on the 486 pairs, then on all pairs 12k $+$Enc, 4k $+$NLL, 4k $+$long stream
+(LR 5e-5); BSRNN (4\,s, batch 8) for 30k
+$+$Enc (LR 1e-4), 6k $+$NLL and 6k $+$long stream; TF-Locoformer (4\,s, batch 4, LR 1e-4) for 20k steps with SI-SDR, Enc, NLL
+and the long stream from MERL's checkpoint on the 486 pairs, then three 4k fine-tunes (with MWER, plain, events 6\,dB louder)
+averaged into one model, a weight soup~\cite{soup}.
 
 \begin{table}[t]
-\caption{Pretrained models and their roles.}
+\caption{Pretrained models in the final system and their roles.}
 \label{tab:models}
 \centering\scriptsize
-\setlength{\tabcolsep}{3pt}
+\setlength{\tabcolsep}{2.5pt}
 \begin{tabular}{@{}lll@{}}
 \toprule
 Model (source, version) & Params & Role \\
 \midrule
-MossFormerGAN\_SE\_16K (ClearVoice~\cite{clearvoice}) & 3.1M & member 1, 4-shift TTA \\
-BSRNN large-double, VCTK+DNS+WHAMR! & 104M & member 2, 4-shift TTA \\
-\quad (ESPnet~\cite{espnetse}, \texttt{wyz/...\_large\_double}) & & \\
+MossFormerGAN\_SE\_16K (ClearVoice~\cite{clearvoice} 0.1.2) & 3.1M & member 1, 4-shift TTA \\
+BSRNN large-double, VCTK+DNS+WHAMR!~\cite{espnetse} & 104M & member 2, 4-shift TTA \\
+\multicolumn{3}{@{}l}{\quad {\tiny\texttt{wyz/vctk\_dns2020\_whamr\_bsrnn\_large\_double\_noncausal}, \texttt{91epoch.pth}}} \\
 TF-Locoformer M, DNS-2020 (MERL~\cite{loco}) & 15M & member 3, weight soup \\
-SraVaani-1.0 (rev.\ \texttt{f5dd535}) & -- & frozen loss, transcripts \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\begin{table}[t]
-\caption{Training stages of the shipped members (steps; crop; LR; losses; data). Enc = encoder distance, NLL = transcript
-likelihood, LS = long single-recording stream; ``all'' = 695 pairs, ``h/o'' = 486-pair held-out protocol.}
-\label{tab:stages}
-\centering\scriptsize
-\setlength{\tabcolsep}{2.4pt}
-\begin{tabular}{@{}llllll@{}}
-\toprule
-Member & Stage & Steps & LR & Losses & Pairs \\
+\multicolumn{3}{@{}l}{\quad {\tiny\texttt{github.com/merlresearch/tf-locoformer}, \texttt{egs2/dns\_ins20}, \texttt{valid.loss.ave\_5best.pth}}} \\
+SraVaani-1.0~\cite{sravaani} (rev.\ \texttt{f5dd535}) & -- & frozen loss, transcripts \\
+Silero-VAD 6.2.3~\cite{silero}, SQUIM (torchaudio 2.9.0)~\cite{squim} & -- & bed screening \\
 \midrule
-MossFormerGAN & pre-train & 6k+34k & 1e-4 & SI-SDR+L1 & h/o \\
-(2\,s crops, bs 4) & encoder & 4k+8k & 5e-5 & +Enc & all \\
- & transcript & 4k & 5e-5 & +NLL & all \\
- & long stream & 4k & 5e-5 & +LS & all \\
-BSRNN-104M & encoder & 30k & 1e-4 & SI-SDR+Enc & all \\
-(4\,s crops, bs 8) & transcript & 6k & 5e-5 & +NLL & all \\
- & long stream & 6k & 5e-5 & +LS & all \\
-TF-Locoformer & long stream & 20k & 1e-4 & all + LS & h/o \\
-(4\,s crops, bs 4) & 3 fine-tunes & 3$\times$4k & 5e-5 & +MWER/--/loud & h/o \\
-Fusion & -- & 3k & 5e-4 & all four & held-out \\
+\multicolumn{3}{@{}l}{\emph{Tried, not in the final system} (Table~\ref{tab:tried}): MP-SENet, FRCRN, TF-GridNet, CleanUNet,} \\
+\multicolumn{3}{@{}l}{\quad UniPASE, Sidon, ZipEnhancer, SEMamba, MossFormer2-48k, USES, Conv-TasNet.} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\textbf{Fusion.} The members' outputs are least-squares scaled onto the input and transformed (512-point STFT, hop 128).
-From the members' and the input's log powers, each member's phase and level relative to a fixed mix
-$B=\sum_m w^0_m X_m$, and a frequency position, eight dilated residual convolution blocks (64 channels) predict per cell
-softmax weights $w_m$ (initialised at $w^0=(0.2,0.35,0.45)$) and a complex readmission $r$ of the noisy cell bounded by
-$|r|\le0.2$ and scaled by how far the mix moved that cell:
+
+
+\textbf{Fusion.} Member outputs are least-squares scaled onto the input (512-point Hann STFT, hop 128). From the
+log powers of the members, the input and a fixed mix $B=\sum_m w^0_m X_m$, each member's phase and level relative to
+$B$ and the frequency position, eight residual blocks of dilated 3$\times$3 convolutions (64 channels) predict per-cell softmax weights $w_m$ (initialised at $w^0=(0.2,0.35,0.45)$) and a complex readmission
+$r$ of the noisy cell ($|\Re r|,|\Im r|\le0.2$), scaled by how far the mix moved that cell:
 \begin{equation}
 \hat{S}=\textstyle\sum_m w_m X_m + r\,a\,Y,\quad a=\min\!\big(1,|Y-B|/|Y|\big).
 \end{equation}
-The fusion trains for 3,000 steps on out-of-sample member outputs (held-out-protocol members on fresh2, the 209 held-out
-pairs and valset) with the same four losses (MWER $\lambda{=}3$), back-propagated through the shipped post-processing.
+It trains for 3,000 steps (LR 5e-4) on 8\,s crops of out-of-sample member outputs (\emph{twins}: the same recipes trained on the 486 pairs only; fresh2, the 209
+pairs and valset), through the shipped post-processing. At inference it combines the all-pair MossFormerGAN and
+BSRNN, which it never saw in training; this twin swap was not measured separately.
 
-\textbf{Inference.} MossFormerGAN and BSRNN average four input delays (0, 41, 83, 124 samples); long clips are decoded
-in overlapping windows (TF-Locoformer 8\,s/6\,s hop, each window gain-matched, BSRNN 20\,s/15\,s). Post-processing is
-identical for every clip: the output is kept where the model changed the audio (smoothed residual above 1.5\% of its
-maximum, dilated 150\,ms, 10\,ms cross-fades), a $-50$\,dB silence gate and a 0.99 peak guard; on test clips the
-shipped audio differs from the pure model output by $-41$\,dB (median). There is no clip classifier, no branch by clip
-type, no pass-through of whole clips and no template, dictionary or correlation matching.
+\textbf{Inference.} MossFormerGAN and BSRNN average four input delays (0, 41, 83, 124 samples~\cite{demucs}); long
+clips are decoded in overlapping windows (TF-Locoformer 8\,s/6\,s, gain-matched; BSRNN 20\,s/15\,s). Post-processing,
+identical for every clip, uses the model output where it changed the audio (smoothed residual above 1.5\% of its
+maximum, dilated 150\,ms) and keeps the input elsewhere (10\,ms cross-fades), then gates at $-50$\,dB and limits peaks
+to 0.99; the fusion trains through it, and shipped audio differs from the pure fusion output by $-41$\,dB (median).
+There is no clip classifier, branch, whole-clip pass-through, or template, dictionary or correlation matching.
 
 \section{Results and Conclusion}
-The metric is Combined $=$ SI-SDR~\cite{sisdr} (synthetic clips) $+\,100\cdot\Delta$WER (all 3,178 clips, pooled). Table~\ref{tab:ladder}
-and Fig.~\ref{fig:ladder} show how the system was built on the Phase 2 board; each row adds one change.
+\textbf{Metric and protocol.} Combined $=$ SI-SDR~\cite{sisdr} (synthetic clips) $+\,100\cdot\Delta$WER (noisy minus
+enhanced WER, pooled over 3,178 clips). Local comparisons are paired, on sets the
+compared models never trained on, with a clip bootstrap (2,000 draws, 95\% CI; valset\_long has one clip per speaker).
 
 \begin{table}[t]
-\caption{Phase 2 board, one change per row ($\Delta$WER in pp). Rows above the rule predate the organisers'
-unified-pipeline rule and routed natural clips through a lighter path; the rows below, and the final system, process
-every clip identically.}
+\caption{Phase 2 board history (Codabench upload names); $\Delta$ is against the parent upload (the row above unless
+named), from unrounded scores. Uploads above the rule predate the unified-pipeline rule and routed natural clips through a lighter path.
+$^\ddagger$Two changes in one upload. Our first Phase 2 entry (routed MP-SENet/FRCRN) scored 16.15.}
 \label{tab:ladder}
-\centering\footnotesize
-\setlength{\tabcolsep}{2.5pt}
-\begin{tabular}{@{}lcccc@{}}
+\centering\scriptsize
+\setlength{\tabcolsep}{2.4pt}
+\begin{tabular}{@{}llcc@{}}
 \toprule
-System & Comb. & SI-SDR & syn. & nat. \\
+Upload & Change (parent) & Comb. & $\Delta$ \\
 \midrule
-Initial 3-model blend & 16.15 & 13.63 & 7.11 & 0.35 \\
-+ ASR-encoder loss & 16.51 & 13.76 & 7.58 & 0.47 \\
-+ BSRNN family & 16.97 & 14.16 & 7.83 & 0.43 \\
-+ transcript NLL, 104M BSRNN & 17.48 & 14.34 & 8.82 & 0.46 \\
-+ learned per-cell fusion & 17.79 & 14.49 & 9.29 & 0.48 \\
-+ TF-Locoformer & 19.16 & 15.42 & 10.60 & 0.50 \\
+p2\_02 & blend of MP-SENet, FRCRN, MossFormerGAN & 16.33 & $+0.18$ \\
+p2\_08 & ASR-encoder loss on MP-SENet (p2\_02) & 16.51 & $+0.18$ \\
+p2\_09 & + BSRNN family, members on all pairs$^\ddagger$ (p2\_02) & 16.97 & $+0.63$ \\
+p2\_17a & re-weighted members, shift TTA$^\ddagger$ & 17.29 & $+0.32$ \\
+p2\_18 & 104M BSRNN, encoder + transcript loss$^\ddagger$ & 17.48 & $+0.19$ \\
+p2\_19 & learned per-cell fusion & 17.60 & $+0.13$ \\
+p2\_23 & fusion on members with ASR losses (p2\_22, 17.55) & 17.79 & $+0.24$ \\
+p2\_28 & + TF-Locoformer with ASR losses (p2\_23) & 19.16 & $+1.37$ \\
 \midrule
-Unified pipeline, long-clip stream & 19.30 & 15.48 & 11.01 & 0.43 \\
-+ fusion readmission, test-length data & 19.68 & 15.75 & 11.30 & 0.46 \\
-Three members only & 19.70 & 15.75 & 11.30 & 0.49 \\
-All three with the long stream & 19.81 & 15.77 & 11.49 & 0.52 \\
-+ MWER on TF-Locoformer & 19.83 & 15.78 & 11.52 & 0.53 \\
-+ TF-Locoformer weight soup & 19.86 & 15.80 & 11.59 & 0.52 \\
-\textbf{+ MWER in the fusion (final)} & \textbf{19.90} & \textbf{15.79} & \textbf{11.66} & \textbf{0.54} \\
+p2\_32 & unified pipeline, long stream on BSRNN$^\ddagger$ & 19.30 & $+0.14$ \\
+p2\_33 & 8-member fusion, readmission, test-length data$^\ddagger$ & 19.68 & $+0.38$ \\
+p2\_35 & three members only & 19.70 & $+0.02$ \\
+p2\_37 & long stream on all three members & 19.81 & $+0.11$ \\
+p2\_39 & MWER on one TF-Locoformer & 19.83 & $+0.02$ \\
+p2\_43 & TF-Locoformer weight soup & 19.86 & $+0.03$ \\
+\textbf{p2\_44} & \textbf{MWER in the fusion (final)} & \textbf{19.90} & $+0.04$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\begin{figure}[t]
-\centering
-\includegraphics[width=\columnwidth]{../figures/ladder.pdf}
-\caption{Phase 2 board score per upload (Table~\ref{tab:ladder}); the largest step is the new TF-Locoformer family.}
-\label{fig:ladder}
-\end{figure}
+
+
+
 
 \begin{table}[t]
-\caption{Each component measured locally against the same system without it (paired clip bootstrap, 95\% CI;
-sim.\ = 1,200 simulated clips, 33.8k words; long = 360 test-length clips; h/o = 209 held-out pairs), and its
-board effect where it was uploaded alone. $^\dagger$Local on MossFormerGAN, board on an MP-SENet member.}
-\label{tab:abl}
-\centering\scriptsize
-\setlength{\tabcolsep}{2.2pt}
-\resizebox{\columnwidth}{!}{%
-\begin{tabular}{@{}lll@{}}
-\toprule
-Component & Local effect & Board \\
-\midrule
-Encoder loss$^\dagger$ & $+0.30$\,pp [$+0.06$, $+0.53$] sim. & $+0.17$ \\
-Enc.\ + transcript loss (BSRNN) & $+0.61$\,pp [$+0.36$, $+0.85$] sim., $+0.05$\,dB & -- \\
-Long single-recording stream & $+1.47$\,pp [$+1.18$, $+1.78$] sim., $+0.30$\,dB & -- \\
-TF-Locoformer in the mix & $+0.79$\,dB long (351 of 360 clips better) & $+1.37$ \\
-Learned fusion vs fixed mix & $+0.40$\,pp [$+0.21$, $+0.59$] sim., $+0.06$\,dB h/o & $+0.13$ to $+0.24$ \\
-Long stream on all 3 members & $+0.33$\,pp [$+0.07$, $+0.60$], $+0.23$\,dB long & $+0.11$ \\
-TF-Locoformer weight soup & $+0.085$\,dB [$+0.056$, $+0.118$] h/o & $+0.03$ \\
-MWER in the fusion & $+0.26$\,pp [$+0.10$, $+0.43$] long & $+0.04$ \\
-\bottomrule
-\end{tabular}}
-\end{table}
-
-\begin{table}[t]
-\caption{Where words are lost: word error (\%) by region on the 555 natural clips (words timed by ASR timestamps,
-labelled by the organisers' event timestamps) and $\Delta$WER (pp) bounds on the 360 test-length clips.}
+\caption{Where words are lost on valset\_long ($\Delta$WER in pp, 95\% CI). $^*$Fusion trained on fresh2 only, with the
+held-out-protocol members, so that the set is out of sample.}
 \label{tab:diag}
 \centering\scriptsize
-\setlength{\tabcolsep}{3pt}
-\begin{tabular}{@{}lrrr@{}}
+\setlength{\tabcolsep}{2pt}
+\begin{tabular}{@{}lcr@{}}
 \toprule
-Natural clips & Words & Noisy & Fusion \\
+valset\_long (360 clips) & SI-SDR & $\Delta$WER (share of ceiling) \\
 \midrule
-Clear speech (no event) & 5,052 & 25.4 & 25.6 \\
-Under a short event & 2,033 & 26.8 & 27.0 \\
-Under clip-long ambient noise only & 749 & 32.7 & 32.3 \\
-\midrule
-Test-length clips & & \multicolumn{2}{r}{$\Delta$WER} \\
-\midrule
-Clean speech (ceiling) & 12,730 & \multicolumn{2}{r}{$+7.59$} \\
-Speech intact, events at $-20$\,dB (oracle) & 12,730 & \multicolumn{2}{r}{$+6.54$} \\
-Ours & 12,730 & \multicolumn{2}{r}{$+4.1$} \\
+Clean speech (ceiling) & -- & $+7.59$ (100\%) \\
+Speech intact, events at $-20$\,dB & 14.39 & $+6.54$ [5.66, 7.46] (86\%) \\
+Final recipe$^*$ & 16.05 & $+4.06$ [3.46, 4.76] (53\%) \\
+\multicolumn{3}{@{}l}{\quad coverage 1--21/21--32/32--72\%: $+1.54$/$+4.00$/$+6.65$ (52/56/52\%)} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\textbf{Validity.} Changes were screened on the 209 held-out pairs, the 360 test-length clips and the 555 natural
-clips with paired clip-bootstrap intervals before any upload. Table~\ref{tab:abl} isolates each component: every one kept
-improved words or SI-SDR locally with an interval excluding zero, and each one uploaded alone also improved the board.
-Local SI-SDR gains transferred at roughly 25--100\%, word gains less reliably (one upload resolves synthetic words to
-about $\pm0.25$\,pp), so each upload changed one thing and the final file was chosen on the board.
+\textbf{Validity.} The final entry is the best of 45 Phase 2 submission files, so 19.90 is optimistic; one upload
+resolves about $\pm0.1$ Combined, so board steps under 0.1 rest on local intervals.
+Local gains did not always transfer (one word gain reversed: louder output), and seeds of a 6k-step continuation
+differ by $\pm0.35$\,pp. So
+we changed one thing per upload where possible and kept a component only if a local interval excluded zero, re-checking
+gains near 0.3\,pp on a second seed or set; Table~\ref{tab:tried} marks the two exceptions.
 
-\textbf{Key findings.} (i) Training through the scoring ASR helped every family: on 33.8k simulated words the encoder
-and transcript losses gave $+0.3$ to $+0.6$\,pp at no SI-SDR cost, and long single-recording windows a further
-$+1.5$\,pp. (ii) Decorrelated families matter more than size: each member alone scores 0.6--1.0 below the blend, and
-TF-Locoformer, the one new family whose errors correlate least with the others, gave the largest single gain ($+1.37$).
-Two members lose 0.08 against three, while eight members gained nothing over three. (iii) Learning the combination per
-cell beats fixed weights ($+0.1$ to $+0.4$). (iv) Where words are lost: on simulated clips 71\% of lost words are
-deletions and 79\% lie under event spans, worst for events louder than $-10$\,dB and longer than 1.2\,s; an oracle mask
-on the mixture recovers 95--97\% of the clean-speech word ceiling, so the limit is per-cell gain accuracy under loud
-events. On natural clips (Table~\ref{tab:diag}), clear speech already has 25.4\% word error, words under events only 1.4--7\,pp more, and
-10.5\% of reference words are English glosses that no output can match, which caps the natural gain near 1\,pp. On
-test-length synthetic clips, keeping the speech intact matters more than removing every trace of an event: speech
-intact with events at $-20$\,dB keeps 86\% of the clean-speech word gain.
+\textbf{Key findings.} (i) The ASR losses raised words on every family we tried at no SI-SDR cost, and long
+single-recording windows gave the largest member-level gain (Table~\ref{tab:tried}; valset glues several speakers per
+clip, which is why it shows more than valset\_long). (ii) The largest system gain came from a new family,
+TF-Locoformer, strong and least correlated with the mix; eight members or 198\,h more speech did not help. (iii) On test-length clips (Table~\ref{tab:diag}) the final recipe
+recovers 53\% of the clean-speech word gain at every event coverage, and 89\% of the words still lost are deletions;
+intact speech under attenuated events keeps 86\% at a \emph{lower} SI-SDR, so the limit is per-cell gain accuracy
+under events, not residual noise. (iv) In natural clips word error is 25.4\% in clear speech, 26.8\% under local events and 32.7\% under clip-long ambient noise,
+and ours leaves each within 0.4\,pp; all noise-attributable errors amount to about 1\,pp. Locally our natural gain is
+zero ($-0.05$\,pp [$-0.38$, $+0.27$]) against $+0.54$\,pp on the board; the test's natural clips may differ.
 
-\begin{table}[t]
-\caption{Ideas that did not beat the system, measured paired against it (local sets: test-length long set, 209
-held-out pairs; dB is SI-SDR, pp is $\Delta$WER).}
-\label{tab:neg}
-\centering\scriptsize
-\setlength{\tabcolsep}{3pt}
-\begin{tabular}{@{}ll@{}}
-\toprule
-Idea & Result \\
-\midrule
-Generative restorer as a member (UniPASE) & $-8.6$\,dB alone, $-3.5$\,pp held-out \\
-198\,h more clean Indic speech (all 4 families) & $-0.05$ to $-0.17$\,dB held-out \\
-Trained two-stage TF-Locoformer in the fusion & $+0.02$\,dB, $-0.02$\,pp \\
-Speech-intact target (clean $+$ noise at $-20$\,dB) & $-4.5$\,dB, $-0.20$\,pp (member) \\
-ASR encoder features as fusion inputs & $-0.05$\,dB, $+0.03$\,pp \\
-MWER also on BSRNN and MossFormerGAN & $-0.07$\,dB, $+0.06$\,pp \\
-Words-first fusion (ASR losses $\times3$) & board 19.88 vs 19.90 \\
-TF-Locoformer soup retrained on all pairs & board 19.87 vs 19.90 \\
-\bottomrule
-\end{tabular}
-\end{table}
+\textbf{Code} (training, data preparation, inference, a stage-by-stage reproduction guide) \textbf{and checkpoints}
+(final and every stage):
+\url{https://github.com/mcjoshi/asr-aware-noise-event-removal},
+\url{https://huggingface.co/manishjoshiai/asr-aware-noise-event-removal}.
 
-\textbf{What did not help.} Table~\ref{tab:neg} lists the ideas that did not beat the system, including generative
-restorers and more clean speech.
+\textbf{Limitations and conclusion.} Shift averaging slows inference; most results use one seed and the scoring ASR
+only. Three public enhancers trained against the scoring ASR's
+objectives and fused per cell reach Combined 19.90 (fourth on the board), processing every clip identically.
 
-\textbf{Reproducibility and code.} Code, training configurations for all 19 member stages and the fusion, data
-preparation scripts and the inference script are at \url{https://github.com/XXXX/indoml2026-track2-hydra} % TODO: replace with the final repository URL
-and the final checkpoints at \url{https://huggingface.co/manishjoshiai/indoml2026-track2-noise-removal}. In a freshly
-built environment the inference script reproduced the submitted audio to within one 16-bit step on every sample.
-Training ran on NVIDIA A100 80\,GB GPUs (one per run, 20--40\,GB each); inference needs one GPU.
-
-\textbf{Limitations.} Four-shift averaging in two members makes inference several times slower than a single pass; local word
-gains under 0.3\,pp could not be confirmed on the board, whose single-upload noise is about $\pm0.25$\,pp; and the
-system leaves about 45\% of the test-length clean-speech word gain unrecovered, mostly deletions under loud, long events.
-
-\textbf{Conclusion.} Three fine-tuned public enhancers, trained against the scoring ASR's own objectives and fused
-per cell, reach Combined 19.90 (fourth on the Phase 2 board) with every clip processed identically.
-
-\begin{thebibliography}{9}
-\footnotesize
+\def\IEEEbibitemsep{0pt plus .5pt}
+\begin{thebibliography}{99}
+\scriptsize
 \bibitem{vaani} ARTPARK and IISc, ``Project Vaani,'' \url{https://huggingface.co/datasets/ARTPARK-IISc/Vaani-transcription-part}, 2025.
 \bibitem{ivr} A. Sankar \emph{et al.}, ``IndicVoices-R: Unlocking a massive multilingual multi-speaker speech corpus for scaling Indian TTS,'' NeurIPS Datasets and Benchmarks, 2024.
-\bibitem{tdt} H. Xu \emph{et al.}, ``Efficient sequence transduction by jointly predicting tokens and durations,'' ICML, 2023.
+\bibitem{silero} Silero Team, ``Silero VAD,'' \url{https://github.com/snakers4/silero-vad}, 2024.
+\bibitem{squim} A. Kumar \emph{et al.}, ``TorchAudio-Squim: Reference-less speech quality and intelligibility measures in TorchAudio,'' ICASSP, 2023.
+\bibitem{mimic} D. Bagchi \emph{et al.}, ``Spectral feature mapping with mimic loss for robust speech recognition,'' ICASSP, 2018.
+\bibitem{obsadd} K. Kinoshita \emph{et al.}, ``Improving noise robust automatic speech recognition with single-channel time-domain enhancement network,'' ICASSP, 2020.
+\bibitem{artifacts} K. Iwamoto \emph{et al.}, ``How bad are artifacts?: Analyzing the impact of speech enhancement errors on ASR,'' Interspeech, 2022.
+\bibitem{shannon} M. Shannon, ``Optimizing expected word error rate via sampling for speech recognition,'' Interspeech, 2017.
 \bibitem{mwer} R. Prabhavalkar \emph{et al.}, ``Minimum word error rate training for attention-based sequence-to-sequence models,'' ICASSP, 2018.
+\bibitem{reinforce} R. J. Williams, ``Simple statistical gradient-following algorithms for connectionist reinforcement learning,'' Machine Learning, 1992.
+\bibitem{tdt} H. Xu \emph{et al.}, ``Efficient sequence transduction by jointly predicting tokens and durations,'' ICML, 2023.
 \bibitem{soup} M. Wortsman \emph{et al.}, ``Model soups: averaging weights of multiple fine-tuned models improves accuracy without increasing inference time,'' ICML, 2022.
-\bibitem{clearvoice} S. Zhao \emph{et al.}, ``ClearerVoice-Studio: Bridging advanced speech processing research and practical deployment,'' \url{https://github.com/modelscope/ClearerVoice-Studio}, 2025.
-\bibitem{espnetse} W. Zhang \emph{et al.}, ``Toward universal speech enhancement for diverse input conditions,'' ASRU, 2023; J. Yu and Y. Luo, ``Efficient monaural speech enhancement with universal sample rate band-split RNN,'' ICASSP, 2023.
+\bibitem{clearvoice} ModelScope, ClearerVoice-Studio, \url{https://github.com/modelscope/ClearerVoice-Studio}, 2025.
+\bibitem{espnetse} J. Yu and Y. Luo, ``Efficient monaural speech enhancement with universal sample rate band-split RNN,'' ICASSP, 2023.
 \bibitem{loco} K. Saijo \emph{et al.}, ``TF-Locoformer: Transformer with local modeling by convolution for speech separation and enhancement,'' IWAENC, 2024.
+\bibitem{sravaani} ARTPARK and IISc, ``SraVaani-1.0,'' \url{https://huggingface.co/ARTPARK-IISc/SraVaani-1.0}, 2026.
+\bibitem{demucs} A. D\'efossez \emph{et al.}, ``Music source separation in the waveform domain,'' arXiv:1911.13254, 2019.
 \bibitem{sisdr} J. Le Roux \emph{et al.}, ``SDR -- half-baked or well done?,'' ICASSP, 2019.
 \end{thebibliography}
 

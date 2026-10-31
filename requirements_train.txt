@@ -2,5 +2,6 @@
 # plus the data-preparation dependencies.
 -r requirements_inference.txt
 librosa==0.10.2.post1
-pyarrow
-silero-vad
+pyarrow==21.0.0
+soxr==1.0.0
+silero-vad==6.2.3

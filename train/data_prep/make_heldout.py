@@ -13,7 +13,7 @@ import soundfile as sf
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from data import load_meta  # noqa: E402
 
-DATA = os.environ.get("TRACK2_DATA", "data")
+DATA = "data"
 
 
 def main():

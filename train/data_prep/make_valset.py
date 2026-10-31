@@ -22,7 +22,7 @@ import soundfile as sf
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-DATA = os.environ.get("TRACK2_DATA", "data")   # data root, see README "Data layout"
+DATA = "data"   # data root, see README "Data layout"
 from data import load_meta
 
 SR, BANK = 16000, os.path.join(DATA, "noisebank")
@@ -55,7 +55,7 @@ def main():
     # The organisers' noisy side carries the bed before its silence gate: outside the events, noisy - clean
     # is the low-level content the gate removed from the reference. Each bed brings its own.
     floor = {}
-    for c in held:
+    for c in sorted(held):   # sorted: the hole-fill seed below is the visiting index
         y = sf.read(meta[c]["noisy_path"], dtype="float32")[0][:len(clean[c])]
         d = np.zeros(len(clean[c]), np.float32)
         d[:len(y)] = y - clean[c][:len(y)]

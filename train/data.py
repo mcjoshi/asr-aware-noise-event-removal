@@ -20,7 +20,7 @@ W_P2 = np.array([.231, .446, .250, .069, .004])     # Phase 2 test share per ban
 
 def load_meta(val_root=None):
     """Organiser validation metadata (validation/validationMetadata.json) with clip ids and audio paths."""
-    val_root = val_root or os.path.join(os.environ.get("TRACK2_DATA", "data"), "validation")
+    val_root = val_root or os.path.join("data", "validation")
     recs = json.load(open(os.path.join(val_root, "validationMetadata.json")))
     for r in recs:
         r["clip_id"] = os.path.splitext(r["segmentFileName"])[0]
@@ -83,7 +83,7 @@ class Stream(torch.utils.data.Dataset):
 
 class LongStream(torch.utils.data.Dataset):
     """Micro-batches of whole-recording windows (length drawn in [lo, hi] s, cut to the shortest bed) with validation-pool
-    events pasted as t2p2_make_valset.py does: Poisson event count at RATE per second, absolute gain log-normal around
+    events pasted as train/data_prep/make_valset.py does: Poisson event count at RATE per second, absolute gain log-normal around
     GAIN_MED, bed level a training reference's RMS + BED_DB. Item i is one micro-batch: mx, cl [B, L], src [B, 3]."""
 
     RATE, GAIN_MED, GAIN_SIG, BED_DB = 0.5, 0.93, 0.80, -3.5

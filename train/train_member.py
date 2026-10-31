@@ -93,7 +93,7 @@ def parse():
     ap.add_argument("--val-root", default="data/validation", help="organiser validation set (validationMetadata.json, audio folders)")
     ap.add_argument("--noise-bank", default="data/noisebank", help="noise events extracted from the validation pairs (prepare_noisebank.py)")
     ap.add_argument("--teacher", default="data/tdt_teacher", help="SraVaani greedy tokens of every clean bed (make_teacher.py)")
-    ap.add_argument("--long-beds", default="", help="manifest.jsonl of 12-18 s single-speaker recordings (prepare_long_beds.py)")
+    ap.add_argument("--long-beds", default="", help="manifest.jsonl of 12-18 s single-speaker recordings (train/data_prep/long_beds.py beds)")
     ap.add_argument("--long-s", default="12,18")
     ap.add_argument("--long-bs", type=int, default=2)
     ap.add_argument("--long-gain-db", type=float, default=0.0, help="shift of the long-stream event gain median, dB")
