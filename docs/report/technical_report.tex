@@ -27,7 +27,7 @@ main novelty is to train speech enhancers \emph{through the frozen scoring ASR's
 transcript likelihood, also on 12--18\,s recordings matching the test clips' length) and to fuse three public
 enhancers of different families (MossFormerGAN, a 104M band-split RNN, TF-Locoformer) per time-frequency cell with a
 deletion-weighted word-error loss. Every clip takes the same path. The final entry scores Combined 19.897 (SI-SDR
-15.793\,dB, $\Delta$WER $+4.104$\,pp), fourth on the Phase 2 board.
+15.793\,dB, $\Delta$WER $+4.104$\,pp) on the Phase 2 board.
 \end{abstract}
 \end{abstract}
 
@@ -257,7 +257,7 @@ Speech intact, events at $-20$\,dB & 14.39 & $+6.54$ & -- \\
 Clean speech (the ceiling) & -- & $+7.59$ & -- \\
 \midrule
 \textbf{Board, final entry} & \textbf{15.79} & $+11.66$ (synthetic) & $+0.54$ \\
-\multicolumn{4}{@{}l}{\quad Combined $= 15.793 + 4.104$ (pooled $\Delta$WER) $= \mathbf{19.897}$, fourth on the board} \\
+\multicolumn{4}{@{}l}{\quad Combined $= 15.793 + 4.104$ (pooled $\Delta$WER) $= \mathbf{19.897}$} \\
 \bottomrule
 \end{tabular}}
 \end{table}
