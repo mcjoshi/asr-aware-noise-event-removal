@@ -34,7 +34,7 @@ for name, sub, fc, y in members:
     box(1.75, y, 2.65, 1.0, name, sub, fc=fc, fs=5.1)
     arrow((1.35, 5.05), (1.75, y + 0.5))
     arrow((4.4, y + 0.5), (4.9, 5.05))
-box(4.9, 4.0, 2.35, 2.1, "fusion", "0.34M params\nweights $w_m$ per cell\n+ bounded\nreadmission $r\\,a\\,Y$", fc="#fbeedd")
+box(4.9, 4.0, 2.35, 2.1, "fusion", "0.34M params\nweights $w_m$ per cell\n+ bounded input\nadd-back $r\\,a\\,Y$", fc="#fbeedd")
 # noisy input to the fusion, routed above the members
 ax.plot([0.7, 0.7, 6.08], [5.55, 7.62, 7.62], color=MUTED, lw=0.6)
 arrow((6.08, 7.62), (6.08, 6.1), color=MUTED, lw=0.6)

@@ -15,7 +15,7 @@ noisy clip -> MossFormerGAN (4-shift TTA) -+
 - **Members:** all three are fine-tuned through the frozen scoring ASR (SraVaani-1.0).
   - Losses: SI-SDR, ASR encoder distance and TDT transcript NLL; one of the three averaged TF-Locoformer fine-tunes also uses a deletion-weighted MWER term.
   - Training data: the organisers' validation pairs, plus a long single-recording (12-18 s) ASR stream.
-- **Fusion:** predicts per time-frequency cell softmax weights over the members, plus a bounded readmission of the input.
+- **Fusion:** predicts per time-frequency cell softmax weights over the members, plus a bounded add-back of the noisy input.
   - Trained on out-of-sample member outputs, through the shipped post-processing.
   - Losses: SI-SDR, encoder distance, transcript NLL and MWER.
 
@@ -32,7 +32,7 @@ inference/infer.py             Phase 2 inference: wav dir -> enhanced wavs (+ su
 track2/                        shared code
   members.py                   MossFormerGAN, BSRNN-104M, TF-Locoformer wrappers (enhance + training losses)
   mossgan.py                   ClearVoice MossFormerGAN decode path, differentiable
-  fusion.py                    FusionNet (per-cell weights + bounded readmission)
+  fusion.py                    FusionNet (per-cell weights + bounded add-back of the input)
   post.py                      post-processing (identical for every clip)
   losses.py                    losses through the scoring ASR: encoder distance, TDT NLL, MWER
   audio.py, text.py            signal helpers, the organisers' transcript normaliser
@@ -53,7 +53,7 @@ scripts/
   download_stage_checkpoints.sh  all 19 intermediate training checkpoints (to re-run or check any single stage)
   train_all.sh                 the full training pipeline in order
 checkpoints/                   final checkpoints (downloaded; see below)
-docs/                          technical report, REPRODUCE.md (reproduction guide), figures
+docs/                          technical report, REPRODUCE.md (reproduction guide), BOARD_HISTORY.md, figures
 ```
 
 ## Environment and hardware
@@ -107,6 +107,8 @@ Enhanced wavs alone (`infer.py` without `--zip`, or `run_inference.sh <in> <out>
 | TF-Locoformer M, DNS-2020 | [merlresearch/tf-locoformer](https://github.com/merlresearch/tf-locoformer) | commit `7a615460d347ff7334a13dbb831d16280da72cdc`, `egs2/dns_ins20/enh1/exp/enh_train_enh_tflocoformer_raw/valid.loss.ave_5best.pth` | Apache-2.0 | start point of member 3 |
 | Silero VAD | [snakers4/silero-vad](https://github.com/snakers4/silero-vad) | `silero-vad==6.2.3` | MIT | bed screening (data preparation only) |
 | SQUIM objective | `torchaudio.pipelines.SQUIM_OBJECTIVE` | `torchaudio==2.9.0` | BSD-2-Clause | bed quality screening (data preparation only) |
+
+Models tried during development and not part of the final system (the report's Table II gives the evidence): MP-SENet, FRCRN, TF-GridNet, CleanUNet, UniPASE, Sidon, ZipEnhancer, SEMamba, MossFormer2_SE_48K, USES and Conv-TasNet.
 
 MossFormerGAN and BSRNN download automatically on first use.
 TF-Locoformer is needed only for training (`scripts/download_pretrained.sh`), because the final checkpoint contains all its weights.
